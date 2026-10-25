@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 143 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 153 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -54,3 +54,9 @@ Tham khảo định dạng: [GitHub secret-scanning patterns](https://docs.githu
 Từ 0.5.4, dùng trực tiếp XML trên raw.githubusercontent.com. Sparkle ghi đè Accept thành `application/rss+xml,*/*;q=0.1`, nên GitHub Contents API trả JSON và không dùng được. Giữ signed-feed bắt buộc. Delegate thêm `clipnest_check` ngẫu nhiên mỗi request để giảm cache. Sau khi publish chạy `scripts/verify-update-feed.sh`: harness dùng chính Sparkle, public key trong app và mạng thật, không mở cửa sổ, tải bộ cài hoặc cài đặt. Nó phải nhận được bản mới và xác thực chữ ký thành công. Kiểm tra curl riêng lẻ không thay thế bước này.
 
 Khi phát hành, upload asset và push feed xong, kiểm tra feed qua đúng endpoint/header app dùng rồi mới thay bản app trong Applications. Không chỉ xác minh bản local hoặc dùng API có đăng nhập của gh để suy ra kết quả client public.
+
+## Startup và quyền hệ thống
+
+LoginItemService dùng SMAppService.mainApp, đọc trạng thái thật thay vì lưu một boolean riêng. Không tự register khi mở app; chỉ khi người dùng bật Settings. requiresApproval có nút mở Login Items. Tests dùng service giả để tránh thay đổi Login Items của máy. Chưa kiểm tra qua một phiên đăng nhập macOS thật.
+
+AccessibilityOnboarding lưu việc đã hỏi hoặc đã thấy trusted. Relaunch không hỏi lại khi denied/revoked; nút Settings vẫn chủ động xin quyền. Bản ad-hoc thay binary có thể bị macOS thu hồi trust; không giả lập hoặc bỏ qua trạng thái AXIsProcessTrusted.

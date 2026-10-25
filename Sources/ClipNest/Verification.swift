@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import CSQLite
 import Carbon
 import SwiftUI
@@ -526,6 +527,44 @@ func runSelfTests() {
       to: NSSelectorFromString("feedParametersForUpdater:sendingSystemProfile:"))
       && !UpdateService.shared.responds(to: NSSelectorFromString("feedURLStringForUpdater:")),
     "Updater adds request parameters without changing Sparkle base URL or scheduler")
+  var loginStatus = SMAppService.Status.notRegistered
+  var loginRegistrations = 0
+  var loginUnregistrations = 0
+  var failRegistration = false
+  let login = LoginItemService(
+    readStatus: { loginStatus },
+    register: {
+      loginRegistrations += 1
+      if failRegistration { throw NSError(domain: "LoginTest", code: 1) }
+      loginStatus = .requiresApproval
+    },
+    unregister: { loginUnregistrations += 1; loginStatus = .notRegistered })
+  check(!login.isRegistered && loginRegistrations == 0, "Reading login state does not register app")
+  login.setEnabled(true)
+  check(login.isRegistered && login.status == .requiresApproval, "Login approval remains visible as pending")
+  login.setEnabled(true)
+  check(loginRegistrations == 1, "Pending login item is not registered twice")
+  loginStatus = .enabled
+  login.refresh()
+  check(login.isRegistered && login.status == .enabled, "Login UI reflects system approval")
+  login.setEnabled(false)
+  check(!login.isRegistered && loginUnregistrations == 1, "Disabling unregisters login item")
+  failRegistration = true
+  login.setEnabled(true)
+  check(!login.isRegistered && login.error != nil, "Failed login registration restores actual system state")
+  let onboardingSuite = "ClipNest.onboarding-test.\(UUID().uuidString)"
+  let onboarding = UserDefaults(suiteName: onboardingSuite)!
+  defer { onboarding.removePersistentDomain(forName: onboardingSuite) }
+  check(AccessibilityOnboarding.consumeAutomaticRequest(trusted: false, defaults: onboarding),
+    "First untrusted launch may ask for Accessibility")
+  let onboardingRelaunch = UserDefaults(suiteName: onboardingSuite)!
+  check(!AccessibilityOnboarding.consumeAutomaticRequest(trusted: false, defaults: onboardingRelaunch),
+    "Denied or revoked Accessibility does not prompt again on relaunch")
+  onboarding.removePersistentDomain(forName: onboardingSuite)
+  check(!AccessibilityOnboarding.consumeAutomaticRequest(trusted: true, defaults: onboarding),
+    "Trusted launch never asks for Accessibility")
+  check(!AccessibilityOnboarding.consumeAutomaticRequest(trusted: false, defaults: onboarding),
+    "Previously trusted user is not prompted again after trust changes")
   checks += runSensitiveContentTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }

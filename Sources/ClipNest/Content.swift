@@ -457,7 +457,7 @@ struct ClipboardContent: View {
             width: 32, height: 32)
           Text("ClipNest").font(.title2.bold())
           Spacer()
-          Text("0.5.3").foregroundStyle(.secondary)
+          Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "").foregroundStyle(.secondary)
         }
         Divider()
         VStack(alignment: .leading, spacing: 8) {
@@ -478,6 +478,8 @@ struct ClipboardContent: View {
           Text("Changes apply immediately. Cards and text stay readable.").font(.caption)
             .foregroundStyle(.secondary)
         }
+        Divider()
+        StartupSettings()
         Divider()
         UpdateSettings()
         Divider()

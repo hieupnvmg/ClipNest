@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     show()
     UpdateService.shared.start()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-      self?.store.requestAccessibilityPermission()
+      self?.store.requestAccessibilityPermission(automatically: true)
     }
   }
   @objc func checkForUpdates() { UpdateService.shared.checkForUpdates() }

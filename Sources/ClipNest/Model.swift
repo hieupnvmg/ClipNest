@@ -286,7 +286,14 @@ final class Store: ObservableObject {
     let granted = AXIsProcessTrusted()
     if accessibilityGranted != granted { accessibilityGranted = granted }
   }
-  func requestAccessibilityPermission(openSettings: Bool = false) {
+  func requestAccessibilityPermission(openSettings: Bool = false, automatically: Bool = false) {
+    if automatically {
+      let trusted = AXIsProcessTrusted()
+      guard AccessibilityOnboarding.consumeAutomaticRequest(trusted: trusted, defaults: defaults) else {
+        refreshAccessibilityStatus()
+        return
+      }
+    }
     guard !AXIsProcessTrusted() else {
       refreshAccessibilityStatus()
       return
