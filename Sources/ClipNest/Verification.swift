@@ -427,6 +427,88 @@ func runSelfTests() {
     FileManager.default.fileExists(atPath: framework.path),
     "Sparkle framework is bundled with the app")
   defaults.removeObject(forKey: "backgroundOpacity")
+  check(
+    ClipboardNavigation.offset(keyCode: 123, modifiers: [], hasMarkedText: false) == -1
+      && ClipboardNavigation.offset(keyCode: 124, modifiers: [], hasMarkedText: false) == 1,
+    "Left and Right select cards even when search holds focus")
+  check(
+    ClipboardNavigation.offset(keyCode: 126, modifiers: [], hasMarkedText: false) == -1
+      && ClipboardNavigation.offset(keyCode: 125, modifiers: [], hasMarkedText: false) == 1,
+    "Up and Down also navigate clipboard items")
+  check(
+    ClipboardNavigation.offset(keyCode: 124, modifiers: [], hasMarkedText: true) == nil,
+    "Arrow keys are left to IME while composing text")
+  check(
+    [NSEvent.ModifierFlags.command, .option, .control, .shift].allSatisfy {
+      ClipboardNavigation.offset(keyCode: 123, modifiers: $0, hasMarkedText: false) == nil
+    }, "Modified arrows preserve text editing and selection")
+  check(
+    ClipboardNavigation.offset(
+      keyCode: 124, modifiers: [.capsLock, .numericPad], hasMarkedText: false) == 1,
+    "Caps Lock and native arrow-key flags do not block navigation")
+  check(
+    ClipboardNavigation.offset(keyCode: 0, modifiers: [], hasMarkedText: false) == nil,
+    "Normal typing is not consumed by navigation")
+  cacheStore.query = ""
+  cacheStore.kind = "All types"
+  cacheStore.board = nil
+  cacheStore.selected = cacheStore.filtered.first?.id
+  cacheStore.move(1)
+  check(
+    cacheStore.selected == cacheStore.filtered.last?.id, "Navigation updates the selected result")
+  cacheStore.move(1)
+  check(cacheStore.selected == cacheStore.filtered.last?.id, "Navigation stops at the final item")
+  cacheStore.move(-1)
+  cacheStore.move(-1)
+  check(cacheStore.selected == cacheStore.filtered.first?.id, "Navigation stops at the first item")
+  cacheStore.query = "no matches"
+  cacheStore.move(1)
+  check(cacheStore.selectedClip == nil, "Empty search results safely ignore navigation")
+  // Exercise the actual controller with a native text-view first responder.
+  // This panel is never ordered onto the user's screen.
+  let testPanel = NavigationTestPanel(
+    contentRect: NSRect(x: 0, y: 0, width: 500, height: 200), styleMask: [.borderless],
+    backing: .buffered, defer: false)
+  testPanel.isReleasedWhenClosed = false
+  let textEditor = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
+  testPanel.contentView!.addSubview(textEditor)
+  check(
+    testPanel.makeFirstResponder(textEditor) && testPanel.firstResponder === textEditor,
+    "Native text editor can hold keyboard focus in navigation regression fixture")
+  let controller = AppDelegate()
+  controller.panel = testPanel
+  controller.store = cacheStore
+  cacheStore.query = ""
+  cacheStore.selected = cacheStore.filtered.first?.id
+  let nativeRight = NSEvent.keyEvent(
+    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+    windowNumber: testPanel.windowNumber, context: nil, characters: "",
+    charactersIgnoringModifiers: "", isARepeat: false, keyCode: 124)!
+  check(
+    controller.handleKey(nativeRight) == nil && cacheStore.selected == cacheStore.filtered.last?.id
+      && testPanel.firstResponder === textEditor,
+    "Controller selects next card while native search editor retains focus")
+  let otherPanel = NSPanel(
+    contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+  otherPanel.isReleasedWhenClosed = false
+  let otherEvent = NSEvent.keyEvent(
+    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+    windowNumber: otherPanel.windowNumber, context: nil, characters: "",
+    charactersIgnoringModifiers: "", isARepeat: false, keyCode: 123)!
+  check(
+    controller.handleKey(otherEvent) === otherEvent
+      && cacheStore.selected == cacheStore.filtered.last?.id,
+    "Keys belonging to another window are not intercepted")
+  controller.focusCards()
+  let nativeLeft = NSEvent.keyEvent(
+    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+    windowNumber: testPanel.windowNumber, context: nil, characters: "",
+    charactersIgnoringModifiers: "", isARepeat: false, keyCode: 123)!
+  check(
+    controller.handleKey(nativeLeft) == nil && cacheStore.selected == cacheStore.filtered.first?.id,
+    "Controller also navigates after removing text-field focus")
+  otherPanel.close()
+  testPanel.close()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
 @MainActor func renderPreview(to path: String, settings: Bool = false) {
@@ -509,4 +591,8 @@ func runSelfTests() {
   hosting.cacheDisplay(in: hosting.bounds, to: rep)
   try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
   print("Preview saved: \(path)")
+}
+
+private final class NavigationTestPanel: NSPanel {
+  override var isVisible: Bool { true }
 }

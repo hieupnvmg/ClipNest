@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 78 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 92 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 

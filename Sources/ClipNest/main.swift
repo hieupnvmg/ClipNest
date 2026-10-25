@@ -155,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     store.toast = nil
     status.button?.toolTip = "ClipNest · \(shortcut.label)"
   }
-  func focusCards() { panel.makeFirstResponder(panel.contentView) }
+  func focusCards() { panel.makeFirstResponder(nil) }
   func focusSearch() {
     store.searchVisible = true
     // Wait for SwiftUI to insert the native search field before assigning focus.
@@ -178,6 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func handleKey(_ event: NSEvent) -> NSEvent? {
     guard panel.isVisible else { return event }
     if store.recordingShortcut {
+      guard event.window === panel || event.window === panel.attachedSheet else { return event }
       if event.keyCode == 53 || event.keyCode == 48 {
         cancelShortcutRecording()
         return nil
@@ -190,7 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       }
       return nil
     }
-    guard panel.attachedSheet == nil else { return event }
+    guard panel.attachedSheet == nil, event.window === panel else { return event }
     let cmd = event.modifierFlags.contains(.command)
     if event.keyCode == 53 {
       hide()
@@ -207,34 +208,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       if number <= items.count { store.copy(items[number - 1]) }
       return nil
     }
-    let typing = panel.firstResponder is NSTextView || panel.firstResponder is NSTextField
-    if typing {
-      if let editor = panel.firstResponder as? NSTextView, editor.hasMarkedText() { return event }
-      if event.keyCode == 125 {
-        focusCards()
-        return nil
-      }
-      if event.keyCode == 36, let clip = store.selectedClip {
-        store.copy(clip)
-        return nil
-      }
-      return event
+    let editor = panel.firstResponder as? NSTextView
+    let hasMarkedText = editor?.hasMarkedText() == true
+    if let offset = ClipboardNavigation.offset(
+      keyCode: event.keyCode, modifiers: event.modifierFlags, hasMarkedText: hasMarkedText)
+    {
+      store.move(offset)
+      return nil
     }
-    switch event.keyCode {
-    case 123:
-      store.move(-1)
+    if hasMarkedText { return event }
+    if event.keyCode == 36, let clip = store.selectedClip {
+      store.copy(clip, plain: event.modifierFlags.contains(.shift))
       return nil
-    case 124:
-      store.move(1)
-      return nil
-    case 36:
-      if let clip = store.selectedClip {
-        store.copy(clip, plain: event.modifierFlags.contains(.shift))
-      }
-      return nil
-    default: return event
     }
+    return event
   }
+
   func hideAndPaste() {
     hide()
     previous?.activate(options: [.activateIgnoringOtherApps])

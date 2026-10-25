@@ -5,7 +5,7 @@
 <h1 align="center">ClipNest</h1>
 <p align="center"><strong>Giữ lại những gì bạn copy. Tìm lại ngay khi cần.</strong></p>
 <p align="center">Một ứng dụng clipboard gọn gàng dành cho Mac, được tạo bởi <a href="https://github.com/hieupnvmg">hieupn</a>.</p>
-<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.0-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
+<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.1-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
 
 ![Giao diện ClipNest với dữ liệu minh họa](docs/preview.png)
 
@@ -25,12 +25,12 @@ Bạn vừa copy một đường link, rồi copy tiếp một đoạn văn và 
 
 ### Cài đặt
 
-1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.0-Apple-Silicon.dmg).
+1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.1-Apple-Silicon.dmg).
 2. Mở file, kéo **ClipNest** vào **Applications**.
 3. Mở ClipNest và bắt đầu copy. App nằm trên menu bar.
 4. App tự nhắc cấp quyền Accessibility nếu chưa có. Để dán thẳng sang ứng dụng khác, bật ClipNest tại **System Settings → Privacy & Security → Accessibility**. Nếu chưa cấp quyền, chọn một mục rồi nhấn `⌘V` để dán.
 
-Bản hiện tại: **0.4.0**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa có bản Mac Intel. App chưa được Apple notarize; nếu macOS chặn do chưa xác minh nhà phát triển, xem [hướng dẫn mở app của Apple](https://support.apple.com/en-au/102445).
+Bản hiện tại: **0.4.1**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa có bản Mac Intel. App chưa được Apple notarize; nếu macOS chặn do chưa xác minh nhà phát triển, xem [hướng dẫn mở app của Apple](https://support.apple.com/en-au/102445).
 
 ### Phím tắt
 
@@ -39,7 +39,7 @@ Bản hiện tại: **0.4.0**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa
 | `⌘⇧V` | Mở / đóng ClipNest |
 | Gõ ngay sau khi mở | Tìm trong lịch sử |
 | `Enter` | Dán mục đang chọn |
-| `↓`, rồi `←` / `→` | Chuyển sang chọn các thẻ |
+| `←` / `→` hoặc `↑` / `↓` | Chọn nội dung ngay cả khi đang ở ô tìm kiếm |
 | `⌘1` đến `⌘9` | Dán nhanh một trong chín mục đầu |
 | `⌘F` | Quay lại ô tìm kiếm |
 | `Esc` | Đóng bảng clipboard |

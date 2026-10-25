@@ -359,7 +359,7 @@ struct Content: View {
         if store.kind != "All types" { Text("· \(store.kind)") }
       }
       Spacer()
-      Text("← → to choose    ↵ to paste    ⌘1–9 quick paste    esc to close")
+      Text("← ↑ ↓ → to choose    ↵ to paste    ⌘1–9 quick paste    esc to close")
     }.font(.system(size: 10)).foregroundStyle(.secondary)
   }
   @ViewBuilder func cardMenu(_ item: Clip) -> some View {
@@ -388,7 +388,7 @@ struct Content: View {
             width: 32, height: 32)
           Text("ClipNest").font(.title2.bold())
           Spacer()
-          Text("0.4.0").foregroundStyle(.secondary)
+          Text("0.4.1").foregroundStyle(.secondary)
         }
         Divider()
         VStack(alignment: .leading, spacing: 8) {
