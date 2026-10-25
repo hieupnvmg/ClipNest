@@ -5,7 +5,7 @@
 <h1 align="center">ClipNest</h1>
 <p align="center"><strong>Giữ lại những gì bạn copy. Tìm lại ngay khi cần.</strong></p>
 <p align="center">Một ứng dụng clipboard gọn gàng dành cho Mac, được tạo bởi <a href="https://github.com/hieupnvmg">hieupn</a>.</p>
-<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/raw/refs/heads/main/downloads/ClipNest-0.3.0-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
+<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.3.0-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
 
 ![Giao diện ClipNest với dữ liệu minh họa](docs/preview.png)
 
@@ -22,7 +22,7 @@ Bạn vừa copy một đường link, rồi copy tiếp một đoạn văn và 
 
 ### Cài đặt
 
-1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/raw/refs/heads/main/downloads/ClipNest-0.3.0-Apple-Silicon.dmg).
+1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.3.0-Apple-Silicon.dmg).
 2. Mở file, kéo **ClipNest** vào **Applications**.
 3. Mở ClipNest và bắt đầu copy. App nằm trên menu bar.
 4. Để dán thẳng sang ứng dụng khác, cấp quyền tại **System Settings → Privacy & Security → Accessibility → ClipNest**. Nếu chưa cấp quyền, chọn một mục rồi nhấn `⌘V` để dán.
