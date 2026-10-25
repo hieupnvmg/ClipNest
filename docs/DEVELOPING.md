@@ -51,4 +51,6 @@ Tham khảo định dạng: [GitHub secret-scanning patterns](https://docs.githu
 
 ## Cache feed OTA
 
-Từ 0.5.1, SPUUpdaterDelegate trả URL feed với query `clipnest_check` ngẫu nhiên cho mỗi lượt để tránh cache CDN cũ. Query không chứa ID thiết bị, lịch sử hay dữ liệu cá nhân; body và chữ ký không thay đổi. Manual check cũng xóa response cache của URL gốc. Khi phát hành, upload asset và push feed xong rồi mới thay bản app đang cài trên máy để tránh chạy bản mới hơn feed trong lúc phát hành.
+Từ 0.5.2, feed được lấy qua GitHub Contents API với Accept `application/vnd.github.raw+json`, vì endpoint raw theo branch vẫn có thể trả dữ liệu cũ dù có cache-busting query. SPUUpdaterDelegate dùng feedParameters để thêm `clipnest_check` ngẫu nhiên cho mỗi request, giữ URL gốc ổn định cho scheduler. Query không chứa ID thiết bị, lịch sử hay dữ liệu cá nhân; XML và chữ ký không thay đổi. Manual check cũng xóa response cache của URL gốc. API public có quota; khi bị giới hạn thì cần thử lại sau, không nhúng token vào app.
+
+Khi phát hành, upload asset và push feed xong, kiểm tra feed qua đúng endpoint/header app dùng rồi mới thay bản app trong Applications. Không chỉ xác minh bản local hoặc dùng API có đăng nhập của gh để suy ra kết quả client public.

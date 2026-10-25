@@ -408,8 +408,8 @@ func runSelfTests() {
   let updateInfo = Bundle.main.infoDictionary ?? [:]
   let feed = (updateInfo["SUFeedURL"] as? String).flatMap(URL.init(string:))
   check(
-    feed?.scheme == "https" && feed?.host == "raw.githubusercontent.com"
-      && feed?.path == "/hieupnvmg/ClipNest/main/updates/appcast.xml",
+    feed?.scheme == "https" && feed?.host == "api.github.com"
+      && feed?.path == "/repos/hieupnvmg/ClipNest/contents/updates/appcast.xml",
     "Update feed uses the expected HTTPS repository")
   let publicKey = (updateInfo["SUPublicEDKey"] as? String).flatMap { Data(base64Encoded: $0) }
   check(publicKey?.count == 32, "Updater embeds a valid Ed25519 public key")
@@ -509,28 +509,23 @@ func runSelfTests() {
     "Controller also navigates after removing text-field focus")
   otherPanel.close()
   testPanel.close()
-  let baseFeed = "https://raw.githubusercontent.com/hieupnvmg/ClipNest/main/updates/appcast.xml"
-  let firstFeed = UpdateFeed.freshURL(from: baseFeed, nonce: "first-check")!
-  let nextFeed = UpdateFeed.freshURL(from: baseFeed, nonce: "next-check")!
+  let firstParameters = UpdateFeed.requestParameters(nonce: "first-check")
+  let nextParameters = UpdateFeed.requestParameters(nonce: "next-check")
   check(
-    firstFeed != nextFeed && firstFeed.path == URL(string: baseFeed)!.path
-      && firstFeed.host == URL(string: baseFeed)!.host,
-    "Update requests use a fresh cache key without changing feed origin or path")
-  let withQuery = UpdateFeed.freshURL(
-    from: baseFeed + "?channel=stable&clipnest_check=old", nonce: "new")!
-  let queryItems = URLComponents(url: withQuery, resolvingAgainstBaseURL: false)!.queryItems!
+    firstParameters != nextParameters && firstParameters.first?["key"] == "clipnest_check",
+    "Update requests use a fresh one-time cache parameter")
   check(
-    queryItems.contains(URLQueryItem(name: "channel", value: "stable"))
-      && queryItems.filter { $0.name == "clipnest_check" }.count == 1
-      && queryItems.contains(URLQueryItem(name: "clipnest_check", value: "new")),
-    "Feed refresh preserves other parameters and replaces old cache keys")
+    Set(firstParameters[0].keys) == Set(["key", "value", "displayKey", "displayValue"])
+      && firstParameters[0]["value"] == "first-check",
+    "Update freshness parameters contain no device identifier or clipboard content")
   check(
-    UpdateFeed.freshURL(from: "http://example.com/feed") == nil
-      && UpdateFeed.freshURL(from: "file:///tmp/feed") == nil,
-    "Feed refresh never downgrades HTTPS transport")
+    UpdateService.shared.feedHTTPHeaders["Accept"] == "application/vnd.github.raw+json",
+    "Sparkle requests raw signed XML from the GitHub Contents API")
   check(
-    UpdateService.shared.responds(to: NSSelectorFromString("feedURLStringForUpdater:")),
-    "Sparkle updater delegate exposes the fresh feed URL callback")
+    UpdateService.shared.responds(
+      to: NSSelectorFromString("feedParametersForUpdater:sendingSystemProfile:"))
+      && !UpdateService.shared.responds(to: NSSelectorFromString("feedURLStringForUpdater:")),
+    "Updater adds request parameters without changing Sparkle base URL or scheduler")
   checks += runSensitiveContentTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }

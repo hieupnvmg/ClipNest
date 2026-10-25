@@ -21,12 +21,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleName</key><string>ClipNest</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.5.1</string>
-<key>CFBundleVersion</key><string>14</string>
+<key>CFBundleShortVersionString</key><string>0.5.2</string>
+<key>CFBundleVersion</key><string>15</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
-<key>SUFeedURL</key><string>https://raw.githubusercontent.com/hieupnvmg/ClipNest/main/updates/appcast.xml</string>
+<key>SUFeedURL</key><string>https://api.github.com/repos/hieupnvmg/ClipNest/contents/updates/appcast.xml?ref=main</string>
 <key>SUEnableAutomaticChecks</key><true/>
 <key>SUAutomaticallyUpdate</key><false/>
 <key>SUEnableSystemProfiling</key><false/>

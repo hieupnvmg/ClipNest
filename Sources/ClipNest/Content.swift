@@ -457,7 +457,7 @@ struct ClipboardContent: View {
             width: 32, height: 32)
           Text("ClipNest").font(.title2.bold())
           Spacer()
-          Text("0.5.1").foregroundStyle(.secondary)
+          Text("0.5.2").foregroundStyle(.secondary)
         }
         Divider()
         VStack(alignment: .leading, spacing: 8) {

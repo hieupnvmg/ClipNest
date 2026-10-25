@@ -14,6 +14,7 @@ final class UpdateService: NSObject, ObservableObject, SPUUpdaterDelegate {
     super.init()
     controller = SPUStandardUpdaterController(
       startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
+    controller.updater.httpHeaders = ["Accept": "application/vnd.github.raw+json"]
     controller.updater.publisher(for: \.canCheckForUpdates).receive(on: RunLoop.main).assign(
       to: &$canCheckForUpdates)
     controller.updater.publisher(for: \.automaticallyChecksForUpdates).receive(on: RunLoop.main)
@@ -33,12 +34,10 @@ final class UpdateService: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
     controller.checkForUpdates(nil)
   }
-  func feedURLString(for updater: SPUUpdater) -> String? {
-    guard let base = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String else {
-      return nil
-    }
-    return UpdateFeed.freshURL(from: base)?.absoluteString
+  func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
+    UpdateFeed.requestParameters()
   }
+  var feedHTTPHeaders: [String: String] { controller.updater.httpHeaders ?? [:] }
   func setAutomaticChecks(_ value: Bool) {
     controller.updater.automaticallyChecksForUpdates = value
   }
@@ -76,17 +75,15 @@ struct AppearancePreferences {
   }
 }
 
-// A fresh, non-identifying query key bypasses stale GitHub edge-cache entries.
-// The signed response body is unchanged and still verified by Sparkle.
+// Keep Sparkle's base feed URL stable; add freshness parameters only to requests.
+// The API serves the signed XML directly, avoiding raw.githubusercontent branch cache.
 enum UpdateFeed {
-  static func freshURL(from base: String, nonce: String = UUID().uuidString) -> URL? {
-    guard var components = URLComponents(string: base), components.scheme == "https",
-      components.host != nil
-    else { return nil }
-    var query = components.queryItems ?? []
-    query.removeAll { $0.name == "clipnest_check" }
-    query.append(URLQueryItem(name: "clipnest_check", value: nonce))
-    components.queryItems = query
-    return components.url
+  static func requestParameters(nonce: String = UUID().uuidString) -> [[String: String]] {
+    [
+      [
+        "key": "clipnest_check", "value": nonce, "displayKey": "Update request",
+        "displayValue": "One-time refresh",
+      ]
+    ]
   }
 }
