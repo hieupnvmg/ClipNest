@@ -51,6 +51,6 @@ Tham khảo định dạng: [GitHub secret-scanning patterns](https://docs.githu
 
 ## Cache feed OTA
 
-Từ 0.5.2, feed được lấy qua GitHub Contents API với Accept `application/vnd.github.raw+json`, vì endpoint raw theo branch vẫn có thể trả dữ liệu cũ dù có cache-busting query. SPUUpdaterDelegate dùng feedParameters để thêm `clipnest_check` ngẫu nhiên cho mỗi request, giữ URL gốc ổn định cho scheduler. Query không chứa ID thiết bị, lịch sử hay dữ liệu cá nhân; XML và chữ ký không thay đổi. Manual check cũng xóa response cache của URL gốc. API public có quota; khi bị giới hạn thì cần thử lại sau, không nhúng token vào app.
+Từ 0.5.4, dùng trực tiếp XML trên raw.githubusercontent.com. Sparkle ghi đè Accept thành `application/rss+xml,*/*;q=0.1`, nên GitHub Contents API trả JSON và không dùng được. Giữ signed-feed bắt buộc. Delegate thêm `clipnest_check` ngẫu nhiên mỗi request để giảm cache. Sau khi publish chạy `scripts/verify-update-feed.sh`: harness dùng chính Sparkle, public key trong app và mạng thật, không mở cửa sổ, tải bộ cài hoặc cài đặt. Nó phải nhận được bản mới và xác thực chữ ký thành công. Kiểm tra curl riêng lẻ không thay thế bước này.
 
 Khi phát hành, upload asset và push feed xong, kiểm tra feed qua đúng endpoint/header app dùng rồi mới thay bản app trong Applications. Không chỉ xác minh bản local hoặc dùng API có đăng nhập của gh để suy ra kết quả client public.

@@ -14,7 +14,6 @@ final class UpdateService: NSObject, ObservableObject, SPUUpdaterDelegate {
     super.init()
     controller = SPUStandardUpdaterController(
       startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
-    controller.updater.httpHeaders = ["Accept": "application/vnd.github.raw+json"]
     controller.updater.publisher(for: \.canCheckForUpdates).receive(on: RunLoop.main).assign(
       to: &$canCheckForUpdates)
     controller.updater.publisher(for: \.automaticallyChecksForUpdates).receive(on: RunLoop.main)
@@ -76,7 +75,8 @@ struct AppearancePreferences {
 }
 
 // Keep Sparkle's base feed URL stable; add freshness parameters only to requests.
-// The API serves the signed XML directly, avoiding raw.githubusercontent branch cache.
+// Use a direct XML endpoint: Sparkle overrides Accept with application/rss+xml.
+// GitHub Contents API would return JSON under that header and fail signature validation.
 enum UpdateFeed {
   static func requestParameters(nonce: String = UUID().uuidString) -> [[String: String]] {
     [

@@ -408,8 +408,8 @@ func runSelfTests() {
   let updateInfo = Bundle.main.infoDictionary ?? [:]
   let feed = (updateInfo["SUFeedURL"] as? String).flatMap(URL.init(string:))
   check(
-    feed?.scheme == "https" && feed?.host == "api.github.com"
-      && feed?.path == "/repos/hieupnvmg/ClipNest/contents/updates/appcast.xml",
+    feed?.scheme == "https" && feed?.host == "raw.githubusercontent.com"
+      && feed?.path == "/hieupnvmg/ClipNest/main/updates/appcast.xml",
     "Update feed uses the expected HTTPS repository")
   let publicKey = (updateInfo["SUPublicEDKey"] as? String).flatMap { Data(base64Encoded: $0) }
   check(publicKey?.count == 32, "Updater embeds a valid Ed25519 public key")
@@ -519,8 +519,8 @@ func runSelfTests() {
       && firstParameters[0]["value"] == "first-check",
     "Update freshness parameters contain no device identifier or clipboard content")
   check(
-    UpdateService.shared.feedHTTPHeaders["Accept"] == "application/vnd.github.raw+json",
-    "Sparkle requests raw signed XML from the GitHub Contents API")
+    UpdateService.shared.feedHTTPHeaders["Accept"] == nil,
+    "Updater does not rely on an Accept header that Sparkle overrides")
   check(
     UpdateService.shared.responds(
       to: NSSelectorFromString("feedParametersForUpdater:sendingSystemProfile:"))
