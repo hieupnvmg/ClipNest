@@ -265,6 +265,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc func quit() { NSApp.terminate(nil) }
 }
 let app = NSApplication.shared
+if CommandLine.arguments.contains("--pikabin-smoke-test") {
+  Task { @MainActor in await runPikabinSmokeTest(); exit(0) }
+  app.run()
+  exit(0)
+}
 if CommandLine.arguments.contains("--image-memory-benchmark") {
   runImageMemoryBenchmark()
   exit(0)

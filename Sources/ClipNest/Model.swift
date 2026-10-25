@@ -88,6 +88,11 @@ extension Color {
   }
 }
 final class Store: ObservableObject {
+  @MainActor lazy var pikabin = PikabinSharing(
+    clipboardCount: { [weak self] in self?.pasteboard.changeCount ?? -1 },
+    copyLink: { [weak self] url in
+      self?.writeClipboard(Clip(source: "PikaBin", kind: "Link", text: url.absoluteString)) ?? false
+    })
   @Published var interfaceStyle: InterfaceStyle {
     didSet { defaults.set(interfaceStyle.rawValue, forKey: "interfaceStyle") }
   }

@@ -60,6 +60,7 @@ Nhấn **`⇧⌘V`** → gõ từ khóa → chọn nội dung → nhấn **`Ente
 | **Tìm lại thật nhanh** | Gõ ngay khi mở, dùng phím mũi tên để chọn hoặc `⌘1`–`⌘9` để dán nhanh. |
 | **Sắp xếp bằng pinboard** | Gom mẫu trả lời, ghi chú và link thường dùng thành từng nhóm. |
 | **Dán theo ý bạn** | Dán giữ định dạng hoặc chọn văn bản thuần. |
+| **Chia sẻ thành link** | Chuột phải vào text → Push to pikab.in, lưu trong 1 tuần. |
 | **Gọn trên màn hình** | Bảng clipboard ở cạnh dưới, hỗ trợ sáng/tối và giao diện Liquid Glass. |
 | **Tùy chỉnh cho quen tay** | Đổi phím tắt, độ trong suốt, bật khởi động cùng macOS và cập nhật trong app. |
 | **Chủ động với dữ liệu** | Che nội dung nhạy cảm, loại trừ ứng dụng, tạm dừng ghi nhận, xem dung lượng và xóa lịch sử. |
@@ -84,6 +85,19 @@ Nhấn **`⇧⌘V`** → gõ từ khóa → chọn nội dung → nhấn **`Ente
 | **Updates** | Kiểm tra bản mới hoặc bật kiểm tra tự động; bạn xác nhận trước khi cài. |
 | **Clipboard Storage** | Xem dung lượng và dùng **Clear** để xóa toàn bộ lịch sử, gồm cả mục đã ghim, sau khi xác nhận. |
 
+### Chia sẻ text lên pikab.in
+
+Chuột phải vào mục text → **Push to pikab.in (1 week)…**. App gửi nội dung gốc, nhận link và lưu trên PikaBin trong **1 tuần**. Ai có link đều có thể đọc.
+
+Link được copy tự động nếu clipboard chưa thay đổi trong lúc gửi; nếu bạn đã copy thứ khác, dùng nút **Copy link** trong cửa sổ kết quả. Mục đang che cần **Hiện tạm 15 giây** trước khi gửi. Ảnh và file không có thao tác này; nội dung đã lưu trong ClipNest vẫn giữ nguyên.
+
+<details>
+<summary>Xem cửa sổ nhận link · See the link result</summary>
+
+![PikaBin — cửa sổ kết quả với link minh họa / result dialog with a sample link](docs/pikabin-preview.png)
+
+</details>
+
 ### Những phím bạn sẽ hay dùng
 
 | Phím | Thao tác |
@@ -104,7 +118,7 @@ Nhấn **`⇧⌘V`** → gõ từ khóa → chọn nội dung → nhấn **`Ente
 - Chọn **Hiện tạm 15 giây** để xem; đóng bảng sẽ che lại. Cần hiện tạm trước khi kéo thả hoặc chỉnh sửa mục đang che.
 - Nhận diện có thể nhầm hoặc bỏ sót. Mật khẩu đứng riêng chưa chắc được nhận diện; app chưa đọc chữ trong ảnh.
 
-Lịch sử nằm trên từng Mac và **không có mã hóa riêng ở tầng ứng dụng**. Che nội dung không mã hóa bản gốc. ClipNest không tải lịch sử lên máy chủ; kết nối mạng của app phục vụ kiểm tra và tải cập nhật từ GitHub. Bạn có thể tắt kiểm tra tự động trong Settings.
+Lịch sử nằm trên từng Mac và **không có mã hóa riêng ở tầng ứng dụng**. Che nội dung không mã hóa bản gốc. ClipNest không tự động tải nội dung clipboard lên máy chủ. Chỉ khi bạn chọn **Push to pikab.in**, text của mục đó mới được gửi lên PikaBin. Kiểm tra và tải cập nhật dùng GitHub; bạn có thể tắt kiểm tra tự động trong Settings.
 
 Ứng dụng trong danh sách loại trừ và clipboard được đánh dấu bí mật/tạm thời vẫn bị bỏ qua. File được lưu dưới dạng tham chiếu; nếu file gốc bị di chuyển hoặc xóa, tham chiếu có thể không còn dùng được.
 
@@ -133,6 +147,7 @@ Press **`⇧⌘V`** → type to search → select an item → press **`Enter`**.
 | **Find it quickly** | Type as soon as the panel opens, select with arrow keys, or quick-paste with `⌘1`–`⌘9`. |
 | **Organize with pinboards** | Group your go-to replies, notes, and links. |
 | **Paste your way** | Keep formatting or paste as plain text. |
+| **Share as a link** | Right-click text → Push to pikab.in, with a one-week expiration. |
 | **Stay out of the way** | A bottom-of-screen panel with light, dark, and Liquid Glass appearances. |
 | **Make it feel familiar** | Customize the shortcut and transparency, launch at login, and update in the app. |
 | **Stay in control** | Mask sensitive content, exclude apps, pause capture, check storage, and clear history. |
@@ -157,6 +172,12 @@ Original images are read from disk on demand, with a bounded thumbnail cache to 
 | **Updates** | Check manually or enable automatic checks; installation requires your confirmation. |
 | **Clipboard Storage** | See storage usage and use **Clear** to delete all history, including pinned items, after confirmation. |
 
+### Share text to pikab.in
+
+Right-click a text item → **Push to pikab.in (1 week)…**. ClipNest uploads the original text and returns a link that expires in **one week**. Anyone with the link can read it.
+
+The link is copied automatically if your clipboard has not changed during the upload. Otherwise, use **Copy link** in the result dialog. Reveal masked content before sharing. Images and files do not have this action; your saved original stays unchanged.
+
 ### Handy shortcuts
 
 | Shortcut | Action |
@@ -177,7 +198,7 @@ Original images are read from disk on demand, with a bounded thumbnail cache to 
 - Reveal an item for **15 seconds**; closing the panel hides it again. Reveal is required before dragging or editing a masked item.
 - Detection can produce false positives or miss content. A standalone password may not be recognized, and text inside images is not scanned.
 
-History stays on each Mac, **without app-level encryption**. Masking does not encrypt the stored original. ClipNest does not upload your history; app network connections are used to check for and download updates from GitHub. Automatic checks can be disabled in Settings.
+History stays on each Mac, **without app-level encryption**. Masking does not encrypt the stored original. ClipNest does not automatically upload clipboard content. Only choosing **Push to pikab.in** sends the selected item’s plain text to PikaBin. Update checks and downloads use GitHub; automatic checks can be disabled in Settings.
 
 Excluded apps and clipboard content marked as secret or temporary are still skipped. Files are stored as references; moving or deleting the original file may break the reference.
 

@@ -7,13 +7,13 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 203 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 232 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
 Lịch sử ở `~/Library/Application Support/ClipNest/history.sqlite3`. App dùng SQLite có sẵn trên macOS, lưu ảnh và rich text dưới dạng BLOB. JSON của bản cũ được tự nhập một lần, giữ bản `history.json.backup`; Clear cũng xóa bản dự phòng này. Settings tính database, WAL/SHM và bản dự phòng nếu có.
 
-App vẫn nạp lịch sử vào bộ nhớ; chưa phân trang hoặc tải blob theo nhu cầu. Lưu nền gộp các thay đổi liên tiếp trong khoảng 150 ms và flush khi thoát bình thường. Force quit trước khi commit có thể làm mất thay đổi cuối chưa ghi.
+App nạp metadata và text/rich text vào bộ nhớ, chưa phân trang. Từ 0.5.8, ảnh gốc được tải theo nhu cầu từ bảng image_payloads trong SQLite. Lưu nền gộp các thay đổi liên tiếp trong khoảng 150 ms và flush khi thoát bình thường. Force quit trước khi commit có thể làm mất thay đổi cuối chưa ghi.
 
 ## Ảnh minh họa
 
@@ -39,7 +39,7 @@ Opacity chỉ áp dụng cho nền NSVisualEffectView, không làm mờ chữ/th
 
 ## Tự bảo vệ nội dung nhạy cảm
 
-Quy tắc local nằm trong SensitiveContent.swift. Không gọi dịch vụ xác minh token, không gửi clipboard ra mạng, không ghi nội dung phát hiện được vào log. Từ 0.5.3, default bật là mask-only cho cả secret và thông tin cá nhân: raw lưu trong SQLite để dán nguyên bản, presentation che khi nhận diện. Không còn skip theo pattern, kể cả qua editor; personalDataAction của bản cũ không còn được sử dụng. Danh sách app loại trừ và marker clipboard vẫn được giữ riêng.
+Quy tắc local nằm trong SensitiveContent.swift. Không gọi dịch vụ xác minh token, không tự gửi clipboard ra mạng khi nhận diện, không ghi nội dung phát hiện được vào log. Từ 0.5.3, default bật là mask-only cho cả secret và thông tin cá nhân: raw lưu trong SQLite để dán nguyên bản, presentation che khi nhận diện. Không còn skip theo pattern, kể cả qua editor; personalDataAction của bản cũ không còn được sử dụng. Danh sách app loại trừ và marker clipboard vẫn được giữ riêng.
 
 Kiểm tra cả plain text, nhãn, HTML và RTF. Ảnh không được OCR. Số thẻ cần qua Luhn; regex email/phone có giới hạn, không bảo đảm phát hiện mọi dữ liệu nhạy cảm. Nội dung cũ/migration được che khi trình bày, không âm thầm xóa dữ liệu cũ.
 
@@ -120,3 +120,21 @@ Fixture gồm 100 PNG mẫu, 1.629.021 byte/ảnh. Mỗi chế độ đọc ch�
 | Nâng cấp v1 + lazy | 0 MiB | 44,44 MiB | 836,2 ms |
 
 Đây là phép đo riêng đường đọc lịch sử, không phải RAM của toàn bộ UI; RSS thực tế còn phụ thuộc ảnh đang xem, clipboard hệ thống và cache. Lần đầu nâng cấp v1 cần đọc/hash từng ảnh. Text/RTF/HTML vẫn được nạp như trước; lịch sử văn bản rất lớn chưa chuyển lazy. Chưa profile cuộn bằng Instruments trên nhiều đời Mac.
+
+## Push to pikab.in (0.5.9)
+
+Tham chiếu: form/JavaScript đang chạy tại https://pikab.in/ và mô tả trong chat “Khám phá API Pikab.in”. Đây là endpoint web, không có tài liệu API chính thức được công bố. Không dùng API key. Native URLSession ephemeral lấy cookie + meta csrf-token qua GET /, sau đó POST / với form URL-encoded UTF-8, X-CSRF-Token, X-Requested-With, Accept JSON, Referer. document[expired_at]=604800, syntax=plain, title=ClipNest (ASCII để tránh lỗi server với một số title tiếng Việt). Chỉ gửi text gốc của mục được chọn, không gửi RTF/HTML, tên ứng dụng nguồn, ảnh hay lịch sử.
+
+PikabinClient tắt cache và không theo redirect. Chỉ chấp nhận HTTP201 với uri HTTPS đúng host pikab.in, một path ID, không query/credentials. Lỗi không đưa raw server body vào UI/log. Không tự retry POST, tránh tạo nhiều paste khi response không rõ. Giới hạn client <5 MB phù hợp capture hiện tại, không khẳng định giới hạn dịch vụ. Timeout request30s/resource60s; cookie/token chỉ nằm trong phiên bộ nhớ.
+
+PikabinSharing tách lỗi upload khỏi lỗi history. Mục Text/Link/Color có action; Image/Files không có. Store kiểm tra lại trạng thái masked trước khi gửi; phải reveal chủ động. Sheet hiển thị progress, Cancel, lỗi/Retry hoặc URL + Copy link. Auto-copy chỉ nếu pasteboard changeCount chưa đổi. Hủy hoặc đóng panel tăng generation, cancel Task, bỏ draft; response về muộn không mở lại UI/copy. Link được copy qua writeClipboard để không tái capture link vào history, nguyên bản của mục không đổi.
+
+232 integration checks tổng cộng: encoding tiếng Việt/emoji/+&=, token parsing, expiration, validation URL, bootstrap/POST bằng URLProtocol, error/no automatic retry, duplicate click, cancellation, newer clipboard, explicit retry và masked/reveal guard. `--render-preview path --pikabin-preview` dùng mock, không gửi mạng/clipboard thật.
+
+Live smoke test (chỉ chạy khi cần kiểm tra tích hợp thật):
+
+```sh
+../ClipNest.app/Contents/MacOS/ClipNest --pikabin-smoke-test
+```
+
+Lệnh tạo một paste từ mẫu cố định không có dữ liệu cá nhân, hết hạn1tuần, đọc .raw và so sánh byte text. Đã xác nhận client Swift tạo link thành công, raw tiếng Việt/emoji/ký tự reserved đúng nguyên bản; trang HTML HTTP200 hiển thị “7 days”. Self-test bình thường dùng stub, không gọi PikaBin.

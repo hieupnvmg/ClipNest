@@ -57,7 +57,7 @@ struct UpdateSettings: View {
         isOn: Binding(get: { service.automaticallyChecks }, set: { service.setAutomaticChecks($0) })
       )
       Text(
-        "ClipNest checks GitHub for new versions. Downloads are verified before installation. Your clipboard history is never sent."
+        "ClipNest checks GitHub for new versions. Downloads are verified before installation. Update checks do not include clipboard contents."
       ).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
   }

@@ -280,6 +280,7 @@ struct ClipboardContent: View {
     .onChange(of: store.settings) { value in if value { store.hideRevealedSensitiveItems() } }
     .sheet(isPresented: $store.settings) { preferences }
     .sheet(item: $store.editing) { item in editor(item) }
+    .modifier(PikabinPresentation(sharing: store.pikabin))
   }
   var toolbar: some View {
     HStack(spacing: 10) {
@@ -403,6 +404,11 @@ struct ClipboardContent: View {
       item.kind == "Image" || item.kind == "Files")
     Button("Copy Only") {
       store.copyOnly(item)
+    }
+    if PikabinSharing.supports(item) {
+      Button("Push to pikab.in (1 week)…") { store.pushToPikabin(item) }
+        .disabled(store.isMasked(item))
+        .help(store.isMasked(item) ? "Hiện tạm nội dung trước khi gửi." : "Gửi text gốc lên pikab.in, lưu 1 tuần.")
     }
     Divider()
     Menu("Move to Pinboard") {
@@ -553,7 +559,7 @@ struct ClipboardContent: View {
           }.disabled(store.accessibilityGranted)
         }
         Text(
-          "Clipboard history stays on this Mac, without app-level encryption. Only update checks and downloads contact GitHub; clipboard contents are never uploaded."
+          "History stays on this Mac, without app-level encryption. Updates contact GitHub. Text is sent to pikab.in only when you choose Push to pikab.in."
         ).font(.caption).foregroundStyle(.secondary)
         if let error = store.error {
           Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)

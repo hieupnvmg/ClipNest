@@ -662,6 +662,7 @@ import SwiftUI
   lifecycleWindow.close()
   checks += await runSensitiveContentTests()
   checks += await runImageStorageTests()
+  checks += await runPikabinTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
 @MainActor func renderPreview(to path: String, settings: Bool = false, privacy: Bool = false) async {
@@ -752,11 +753,13 @@ import SwiftUI
     store.selected = store.filtered[index].id
   }
   let dark = CommandLine.arguments.contains("--dark-preview")
-  let width: CGFloat = settings ? 560 : 1440
-  let height: CGFloat = settings ? 740 : 346
-  let content =
-    settings
-    ? AnyView(ClipboardContent(store: store).preferences) : AnyView(ClipboardContent(store: store))
+  let sharing = CommandLine.arguments.contains("--pikabin-preview") ? await pikabinPreview() : nil
+  let width: CGFloat = sharing != nil ? 480 : (settings ? 560 : 1440)
+  let height: CGFloat = sharing != nil ? 290 : (settings ? 740 : 346)
+  let content: AnyView
+  if let sharing { content = AnyView(PikabinShareSheet(sharing: sharing)) }
+  else if settings { content = AnyView(ClipboardContent(store: store).preferences) }
+  else { content = AnyView(ClipboardContent(store: store)) }
   let root = content.frame(width: width, height: height).background(
     Color(nsColor: .windowBackgroundColor)
   ).environment(\.colorScheme, dark ? .dark : .light)
