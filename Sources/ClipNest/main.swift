@@ -265,19 +265,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc func quit() { NSApp.terminate(nil) }
 }
 let app = NSApplication.shared
+if CommandLine.arguments.contains("--image-memory-benchmark") {
+  runImageMemoryBenchmark()
+  exit(0)
+}
+if let i = CommandLine.arguments.firstIndex(of: "--image-read-probe"), i + 1 < CommandLine.arguments.count {
+  runImageReadProbe(path: CommandLine.arguments[i + 1], eager: CommandLine.arguments.contains("--eager-images"), upgrading: CommandLine.arguments.contains("--upgrade-probe"))
+  exit(0)
+}
 if CommandLine.arguments.contains("--performance-check") {
   runPerformanceChecks()
   exit(0)
 }
 if CommandLine.arguments.contains("--self-test") {
-  runSelfTests()
+  Task { @MainActor in await runSelfTests(); exit(0) }
+  app.run()
   exit(0)
 }
 if let i = CommandLine.arguments.firstIndex(of: "--render-preview"),
   i + 1 < CommandLine.arguments.count
 {
-  DispatchQueue.main.async {
-    renderPreview(
+  Task { @MainActor in
+    await renderPreview(
       to: CommandLine.arguments[i + 1], settings: CommandLine.arguments.contains("--settings"),
       privacy: CommandLine.arguments.contains("--privacy-preview"))
     exit(0)

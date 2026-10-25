@@ -1,6 +1,6 @@
 import AppKit
 
-func runSensitiveContentTests() -> Int {
+@MainActor func runSensitiveContentTests() async -> Int {
   var count = 0
   func check(_ result: @autoclosure () -> Bool, _ name: String) {
     guard result() else {
@@ -149,7 +149,7 @@ func runSensitiveContentTests() -> Int {
   check(
     !store.isMasked(saved) && store.displayClip(saved).text == saved.text,
     "Explicit temporary reveal shows original content")
-  RunLoop.current.run(until: Date().addingTimeInterval(0.06))
+  try? await Task.sleep(nanoseconds: 60_000_000)
   check(store.isMasked(saved), "Temporary reveal automatically expires")
   store.revealSensitiveItem(saved)
   store.hideRevealedSensitiveItems()
@@ -205,7 +205,7 @@ func runSensitiveContentTests() -> Int {
   store.revealSensitiveItem(saved, duration: 0.02)
   store.edit(saved)
   check(store.editing?.id == saved.id, "Revealed content can be edited explicitly")
-  RunLoop.current.run(until: Date().addingTimeInterval(0.06))
+  try? await Task.sleep(nanoseconds: 60_000_000)
   check(
     store.editing == nil && store.editedText.isEmpty,
     "Reveal expiry closes sensitive editor and clears its draft")

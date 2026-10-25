@@ -64,6 +64,8 @@ Nhấn **`⇧⌘V`** → gõ từ khóa → chọn nội dung → nhấn **`Ente
 | **Tùy chỉnh cho quen tay** | Đổi phím tắt, độ trong suốt, bật khởi động cùng macOS và cập nhật trong app. |
 | **Chủ động với dữ liệu** | Che nội dung nhạy cảm, loại trừ ứng dụng, tạm dừng ghi nhận, xem dung lượng và xóa lịch sử. |
 
+Ảnh gốc được đọc từ ổ đĩa khi cần; cache ảnh xem trước có giới hạn để giảm RAM khi lịch sử có nhiều ảnh.
+
 ### Cài trong một phút
 
 1. [Tải bản mới nhất](https://github.com/hieupnvmg/ClipNest/releases/latest), chọn file **`.dmg`**.
@@ -134,6 +136,8 @@ Press **`⇧⌘V`** → type to search → select an item → press **`Enter`**.
 | **Stay out of the way** | A bottom-of-screen panel with light, dark, and Liquid Glass appearances. |
 | **Make it feel familiar** | Customize the shortcut and transparency, launch at login, and update in the app. |
 | **Stay in control** | Mask sensitive content, exclude apps, pause capture, check storage, and clear history. |
+
+Original images are read from disk on demand, with a bounded thumbnail cache to reduce memory use in large histories.
 
 ### Install in a minute
 

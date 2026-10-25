@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 172 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 203 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -89,6 +89,34 @@ Chạy `../ClipNest.app/Contents/MacOS/ClipNest --performance-check` bằng dữ
 | Copy lại một mục | 3 lần publish clips | 1 |
 | 100 lần save SQLite không thay đổi | 113,20 ms | 68,90 ms |
 
-Đây là microbenchmark một lần, không phải tốc độ toàn app hay đo CPU/GPU khi sử dụng thật. 172 integration checks gồm SQLite no-op/migration, retention, thumbnail eviction và native search field mount/unmount khi panel ẩn/hiện. Chưa đo bằng Instruments.
+Đây là microbenchmark một lần, không phải tốc độ toàn app hay đo CPU/GPU khi sử dụng thật. 203 integration checks gồm SQLite no-op/migration, retention, thumbnail eviction và native search field mount/unmount khi panel ẩn/hiện. Chưa đo bằng Instruments.
 
-Giới hạn còn lại: load history vẫn đọc toàn bộ payload ảnh vào RAM; cache thumbnail đã giới hạn 32 MB không giới hạn tổng ảnh gốc. Nếu cần lịch sử rất nhiều ảnh, bước kiến trúc tiếp theo là tải payload từ SQLite theo nhu cầu. Không thay đổi schema hoặc cách lưu dữ liệu trong đợt này.
+Giới hạn này đã được xử lý ở 0.5.8: ảnh gốc tải theo nhu cầu từ SQLite, xem phần dưới.
+
+## Ảnh tải theo nhu cầu (0.5.8)
+
+Schema v2 thêm image_digest và bảng image_payloads riêng chứa PNG BLOB. Nâng cấp v1 tạo digest và chuyển từng ảnh trong transaction riêng (atomic/resumable), không gom BLOB vào mảng; bước chỉ mục chạy một lần. JSON legacy vẫn được nhập một lần như trước. Không xóa/mã hóa lại ảnh. Store dùng loadAndMigrate → load(includeImageData: false), SQL CASE bỏ payload ảnh, length(payload) và digest cung cấp reference. Chế độ load mặc định eager chỉ phục vụ kiểm tra/export, không dùng khi app khởi động.
+
+Clip.imageReference chứa SHA-256 và byteCount, data nil khi ảnh đã được lưu. HistoryDatabase.persisted cũng chỉ giữ metadata ảnh. Save trả references; chỉ đúng saveRevision thành công mới bỏ data khỏi Store, pendingSnapshot, pendingSave và privacy cache. Save thất bại giữ data để retry. Ảnh có cùng digest vẫn giữ ID/pin/title khi recapture.
+
+Metadata ảnh ở clips, ảnh gốc ở image_payloads để SQLite không phải dựng lại row chứa BLOB lớn khi đổi tên/ghim. Test ảnh 2 MB xác nhận đổi tên chỉ tạo WAL <128 KiB. Metadata update ảnh dùng UPDATE không có payload; reorder dùng clip_order. Deferred reference chưa tồn tại không được insert với payload NULL. Copy/dán UI và drag provider đọc ảnh gốc ở luồng nền, không re-encode. Copy lỗi không clear pasteboard; callback cũ không ghi đè hành động copy mới hoặc clipboard thay đổi trong lúc đọc. Direct paste ảnh bị hủy nếu panel đã đóng trước callback. writeClipboard đồng bộ được giữ cho tests/đường gọi cần kết quả ngay.
+
+ImagePipeline serial OperationQueue giới hạn một decode thumbnail một lúc. Task cancellation bỏ đọc BLOB đang chờ; đang đọc/decode sẽ dừng ở điểm kiểm tra tiếp theo. Thumbnail tối đa 600 px được vẽ sang bitmap độc lập để không giữ provider PNG gốc, rồi đưa vào NSCache mục tiêu 32 MiB. NSCache là giới hạn mềm; ảnh đang hiện cũng giữ thumbnail riêng. LazyHStack có thể chuẩn bị một số thẻ gần vùng nhìn thấy. Sau await phải kiểm tra item vẫn tồn tại trước khi đưa vào cache. Clear/delete không bị callback thumbnail khôi phục ảnh.
+
+203 integration checks gồm metadata-only startup, nâng cấp schema v1, byte-exact copy/drag, giữ ảnh khi lưu lỗi, dedup, metadata writes, cache reuse, queued cancellation, malformed image và stale copy. Self-test chạy async trên MainActor để không chặn tác vụ UI/timer.
+
+### Đo bộ nhớ
+
+```sh
+../ClipNest.app/Contents/MacOS/ClipNest --image-memory-benchmark
+```
+
+Fixture gồm 100 PNG mẫu, 1.629.021 byte/ảnh. Mỗi chế độ đọc chạy trong tiến trình mới, không dùng clipboard hay lịch sử thật:
+
+| Chế độ | Bytes ảnh gốc giữ trong Clip | Peak RSS | Thời gian mở + đọc |
+| --- | --- | --- | --- |
+| Eager | 155,36 MiB | 189,66 MiB | 42,9 ms |
+| Metadata/lazy | 0 MiB | 30,95 MiB | 2,3 ms |
+| Nâng cấp v1 + lazy | 0 MiB | 44,44 MiB | 836,2 ms |
+
+Đây là phép đo riêng đường đọc lịch sử, không phải RAM của toàn bộ UI; RSS thực tế còn phụ thuộc ảnh đang xem, clipboard hệ thống và cache. Lần đầu nâng cấp v1 cần đọc/hash từng ảnh. Text/RTF/HTML vẫn được nạp như trước; lịch sử văn bản rất lớn chưa chuyển lazy. Chưa profile cuộn bằng Instruments trên nhiều đời Mac.

@@ -1,6 +1,21 @@
 import AppKit
 import ImageIO
+import CryptoKit
 import SwiftUI
+
+struct ImageReference: Codable, Equatable, Hashable {
+  let digest: String
+  let byteCount: Int
+  init(data: Data) {
+    digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    byteCount = data.count
+  }
+  init(digest: String, byteCount: Int) { self.digest = digest; self.byteCount = byteCount }
+}
+struct HistoryWrite {
+  let bytes: Int64
+  let images: [UUID: ImageReference]
+}
 
 struct Clip: Codable, Identifiable, Equatable {
   var id = UUID()
@@ -13,6 +28,15 @@ struct Clip: Codable, Identifiable, Equatable {
   var title: String = ""
   var bundleID: String?
   var html: Data?
+  var imageReference: ImageReference?
+  var hasDeferredImage: Bool { kind == "Image" && data == nil && imageReference != nil }
+  func imageMetadata() -> Clip {
+    guard kind == "Image", let data else { return self }
+    var compact = self
+    compact.imageReference = ImageReference(data: data)
+    compact.data = nil
+    return compact
+  }
   var displayTitle: String {
     if !title.isEmpty { return title }
     if kind == "Link", let url = URL(string: text) {
@@ -124,6 +148,7 @@ final class Store: ObservableObject {
   private let writerQueue = DispatchQueue(label: "local.clipnest.history", qos: .utility)
   private var pendingSave: DispatchWorkItem?
   private var pendingSnapshot: [Clip]?
+  private var clipboardActionRevision = 0
   private var saveRevision = 0
   private var archiveUnreadable = false
   private let asynchronousSaves: Bool
@@ -194,21 +219,33 @@ final class Store: ObservableObject {
     if storageBytes != bytes { storageBytes = bytes }
   }
   private static func persist(_ snapshot: [Clip], in database: HistoryDatabase?) -> Result<
-    Int64, Error
+    HistoryWrite, Error
   > {
     Result {
       guard let database else { throw DatabaseError(message: "Clipboard database is unavailable.") }
       try database.save(snapshot)
-      return database.storageBytes
+      return HistoryWrite(bytes: database.storageBytes, images: database.imageReferences)
     }
   }
-  private func didWrite(_ result: Result<Int64, Error>, revision: Int) {
+  private func didWrite(_ result: Result<HistoryWrite, Error>, revision: Int) {
     guard revision == saveRevision else { return }
     switch result {
-    case .success(let bytes):
-      if storageBytes != bytes { storageBytes = bytes }
+    case .success(let saved):
+      if storageBytes != saved.bytes { storageBytes = saved.bytes }
       if error != nil { error = nil }
       pendingSnapshot = nil
+      pendingSave = nil
+      var compact = clips
+      var changed = false
+      for i in compact.indices where compact[i].kind == "Image" && compact[i].data != nil {
+        if let reference = saved.images[compact[i].id] {
+          compact[i].imageReference = reference
+          compact[i].data = nil
+          protectedPresentations.removeObject(forKey: compact[i].id as NSUUID)
+          changed = true
+        }
+      }
+      if changed { clips = compact }
     case .failure(let failure):
       error = "History could not be saved: \(failure.localizedDescription)"
     }
@@ -274,14 +311,14 @@ final class Store: ObservableObject {
     pendingSave?.cancel()
     pendingSave = nil
     let snapshot = pendingSnapshot
-    let result: Result<Int64, Error> = writerQueue.sync {
+    let result: Result<HistoryWrite, Error> = writerQueue.sync {
       Result {
         guard let database else {
           throw DatabaseError(message: "Clipboard database is unavailable.")
         }
         if let snapshot { try database.save(snapshot) }
         try database.checkpoint()
-        return database.storageBytes
+        return HistoryWrite(bytes: database.storageBytes, images: database.imageReferences)
       }
     }
     didWrite(result, revision: saveRevision)
@@ -414,9 +451,12 @@ final class Store: ObservableObject {
     }
     guard var item = clip else { return }
     item.bundleID = bid
+    if item.kind == "Image", let data = item.data { item.imageReference = ImageReference(data: data) }
     var next = clips
     if let index = next.firstIndex(where: {
-      $0.kind == item.kind && $0.text == item.text && $0.data == item.data && $0.html == item.html
+      guard $0.kind == item.kind && $0.text == item.text && $0.html == item.html else { return false }
+      if item.kind == "Image" { return $0.imageReference == item.imageReference }
+      return $0.data == item.data
     }) {
       let old = next.remove(at: index)
       item.id = old.id
@@ -449,10 +489,15 @@ final class Store: ObservableObject {
     else { return nil }
     return (png, "\(width) × \(height)")
   }
-  func writeClipboard(_ item: Clip, plain: Bool = false) {
+  @discardableResult func writeClipboard(_ item: Clip, plain: Bool = false) -> Bool {
+    var originalImage: Data?
+    if item.kind == "Image" {
+      do { originalImage = try readImage(item) }
+      catch { self.error = error.localizedDescription; return false }
+    }
     let p = pasteboard
     p.clearContents()
-    if item.kind == "Image", let data = item.data {
+    if item.kind == "Image", let data = originalImage {
       p.setData(data, forType: .png)
     } else if item.kind == "Files" {
       p.writeObjects(
@@ -465,10 +510,88 @@ final class Store: ObservableObject {
       }
     }
     count = p.changeCount
+    return true
   }
   func copy(_ item: Clip, plain: Bool = false) {
-    writeClipboard(item, plain: plain)
-    (NSApp.delegate as? AppDelegate)?.hideAndPaste()
+    let deferred = item.hasDeferredImage
+    prepareClipboardItem(item) { [weak self] ready in
+      // A delayed image read must not paste into another app after this panel closes.
+      if deferred, let app = NSApp.delegate as? AppDelegate, !app.panelPresentation.isVisible { return }
+      guard self?.writeClipboard(ready, plain: plain) == true else { return }
+      (NSApp.delegate as? AppDelegate)?.hideAndPaste()
+    }
+  }
+  func copyOnly(_ item: Clip) {
+    prepareClipboardItem(item) { [weak self] ready in
+      guard self?.writeClipboard(ready) == true else { return }
+      self?.toast = "Copied to clipboard"
+    }
+  }
+  private func prepareClipboardItem(_ item: Clip, ready: @escaping (Clip) -> Void) {
+    clipboardActionRevision += 1
+    let revision = clipboardActionRevision
+    let clipboardCount = pasteboard.changeCount
+    guard item.hasDeferredImage else { ready(item); return }
+    requestImage(item) { [weak self] result in
+      guard let self, self.clipboardActionRevision == revision,
+        self.pasteboard.changeCount == clipboardCount,
+        self.clips.contains(where: { $0.id == item.id && $0.imageReference == item.imageReference }) else { return }
+      switch result {
+      case .success(let bytes):
+        var hydrated = item
+        hydrated.data = bytes
+        ready(hydrated)
+      case .failure(let failure): self.error = failure.localizedDescription
+      }
+    }
+  }
+  private func imageReader(_ item: Clip) -> () throws -> Data {
+    let database = self.database
+    let queue = writerQueue
+    return {
+      if let data = item.data { return data }
+      return try queue.sync {
+        guard let database else { throw DatabaseError(message: "Clipboard database is unavailable.") }
+        return try database.imageData(for: item.id, expected: item.imageReference)
+      }
+    }
+  }
+  func readImage(_ item: Clip) throws -> Data { try imageReader(item)() }
+  func requestImage(_ item: Clip, completion: @escaping (Result<Data, Error>) -> Void) {
+    let reader = imageReader(item)
+    // The reader synchronizes with pending writes and Clear on the database queue.
+    DispatchQueue.global(qos: .userInitiated).async {
+      let result = Result { try reader() }
+      DispatchQueue.main.async { completion(result) }
+    }
+  }
+  @MainActor func previewImage(_ item: Clip) async -> NSImage? {
+    let key = item.id.uuidString as NSString
+    if let cached = PreviewCache.shared.images.object(forKey: key) { return cached }
+    let reference = item.imageReference
+    guard let thumbnail = await ImagePipeline.shared.thumbnail(read: imageReader(item)), !Task.isCancelled else { return nil }
+    guard clips.contains(where: { $0.id == item.id && $0.imageReference == reference }) else { return nil }
+    let image = NSImage(cgImage: thumbnail, size: NSSize(width: thumbnail.width, height: thumbnail.height))
+    PreviewCache.shared.images.setObject(image, forKey: key, cost: thumbnail.bytesPerRow * thumbnail.height)
+    return image
+  }
+  func imageProvider(_ item: Clip) -> NSItemProvider {
+    let provider = NSItemProvider()
+    let reader = imageReader(item)
+    provider.registerDataRepresentation(forTypeIdentifier: "public.png", visibility: .all) { completion in
+      let progress = Progress(totalUnitCount: 1)
+      DispatchQueue.global(qos: .userInitiated).async {
+        do {
+          guard !progress.isCancelled else { throw CocoaError(.userCancelled) }
+          let data = try reader()
+          guard !progress.isCancelled else { throw CocoaError(.userCancelled) }
+          completion(data, nil)
+          progress.completedUnitCount = 1
+        } catch { completion(nil, error) }
+      }
+      return progress
+    }
+    return provider
   }
   func pin(_ item: Clip, to board: String?) {
     if let i = clips.firstIndex(where: { $0.id == item.id }) {

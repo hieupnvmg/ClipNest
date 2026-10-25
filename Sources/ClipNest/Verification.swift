@@ -4,7 +4,7 @@ import CSQLite
 import Carbon
 import SwiftUI
 
-func runSelfTests() {
+@MainActor func runSelfTests() async {
   let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
     "ClipNest-tests-\(UUID().uuidString)")
   let suite = "ClipNest.tests.\(UUID().uuidString)"
@@ -83,13 +83,13 @@ func runSelfTests() {
   pb.clearContents()
   pb.writeObjects([image])
   s.capture(source: "Test", bundleID: "test.app")
-  check(s.clips[0].kind == "Image" && s.clips[0].data != nil, "Image capture")
+  check(s.clips[0].kind == "Image" && s.clips[0].hasDeferredImage, "Image capture")
   let originalPNG = NSBitmapImageRep(data: image.tiffRepresentation!)!.representation(
     using: .png, properties: [:])!
   pb.clearContents()
   pb.setData(originalPNG, forType: .png)
   s.capture(source: "Test", bundleID: "test.app")
-  check(s.clips[0].data == originalPNG, "PNG capture preserves original bytes without re-encoding")
+  check((try? s.readImage(s.clips[0])) == originalPNG, "PNG capture preserves original bytes without re-encoding")
   let file = folder.appendingPathComponent("example.txt")
   try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
   try! Data("file".utf8).write(to: file)
@@ -174,9 +174,9 @@ func runSelfTests() {
   largeImage.unlockFocus()
   let largeClip = Clip(
     source: "Test", kind: "Image", text: "2000 × 1000", data: largeImage.tiffRepresentation)
-  let thumbnail = PreviewCache.shared.image(largeClip)
+  let thumbnail = await ImagePipeline.shared.thumbnail(read: { largeClip.data! })
   check(
-    thumbnail != nil && max(thumbnail!.size.width, thumbnail!.size.height) <= 600,
+    thumbnail != nil && max(thumbnail!.width, thumbnail!.height) <= 600,
     "Image preview is downsampled to bounded dimensions")
   let asyncFolder = folder.appendingPathComponent("async")
   let asyncStore = Store(
@@ -191,13 +191,13 @@ func runSelfTests() {
   check(
     diskClips.count == 1 && diskClips[0].text == "Snapshot 29",
     "Flush commits latest rapid background save before exit")
-  RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+  try? await Task.sleep(nanoseconds: 250_000_000)
   diskClips = try! HistoryDatabase(url: asyncStore.url).load()
   check(diskClips[0].text == "Snapshot 29", "Canceled older saves cannot overwrite newer data")
   asyncStore.clips.append(Clip(source: "Test", kind: "Text", text: "Must be cleared"))
   asyncStore.save()
   asyncStore.clearHistory()
-  RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+  try? await Task.sleep(nanoseconds: 250_000_000)
   diskClips = try! HistoryDatabase(url: asyncStore.url).load()
   check(
     diskClips.isEmpty && asyncStore.error == nil,
@@ -230,7 +230,7 @@ func runSelfTests() {
   let migrated = Store(folder: legacyFolder, defaults: defaults, pasteboard: pb, monitoring: false)
   let backupURL = legacyFolder.appendingPathComponent("history.json.backup")
   check(
-    migrated.error == nil && migrated.clips == legacyClips,
+    migrated.error == nil && (try! HistoryDatabase(url: migrated.url).load()) == legacyClips,
     "JSON migration preserves order, UUIDs, dates, Unicode, pins and binary payloads")
   check(
     (try? Data(contentsOf: backupURL)) == legacyBytes
@@ -238,7 +238,7 @@ func runSelfTests() {
     "Original JSON is retained as a migration backup")
   let reopened = Store(folder: legacyFolder, defaults: defaults, pasteboard: pb, monitoring: false)
   check(
-    reopened.clips == legacyClips, "SQLite relaunch preserves all fields without duplicate import")
+    reopened.clips == migrated.clips && reopened.clips.last?.hasDeferredImage == true, "SQLite relaunch preserves all fields without duplicate import")
   migrated.clearHistory()
   check(
     !FileManager.default.fileExists(atPath: backupURL.path) && migrated.clips.isEmpty,
@@ -639,31 +639,32 @@ func runSelfTests() {
   func containsSearch(_ view: NSView) -> Bool {
     view is NSSearchField || view.subviews.contains(where: containsSearch)
   }
-  func settlePanel() {
+  func settlePanel() async {
     lifecycleHost.layoutSubtreeIfNeeded()
-    RunLoop.current.run(until: Date().addingTimeInterval(0.08))
+    try? await Task.sleep(nanoseconds: 80_000_000)
     lifecycleHost.layoutSubtreeIfNeeded()
   }
-  settlePanel()
+  await settlePanel()
   check(!containsSearch(lifecycleHost), "Hidden panel does not construct clipboard controls")
   visibility.isVisible = true
-  settlePanel()
+  await settlePanel()
   check(containsSearch(lifecycleHost), "Opening panel mounts the native search field")
   visibility.isVisible = false
-  settlePanel()
+  await settlePanel()
   optimized.query = "Background change"
   optimized.clips.append(Clip(source: "Test", kind: "Text", text: "Background change"))
-  settlePanel()
+  await settlePanel()
   check(!containsSearch(lifecycleHost), "Hidden captures leave clipboard controls unmounted")
   visibility.isVisible = true
-  settlePanel()
+  await settlePanel()
   check(containsSearch(lifecycleHost) && optimized.filtered.count == 1,
     "Reopening panel restores controls with the latest history and query")
   lifecycleWindow.close()
-  checks += runSensitiveContentTests()
+  checks += await runSensitiveContentTests()
+  checks += await runImageStorageTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
-@MainActor func renderPreview(to path: String, settings: Bool = false, privacy: Bool = false) {
+@MainActor func renderPreview(to path: String, settings: Bool = false, privacy: Bool = false) async {
   let suite = "ClipNest.preview.\(UUID().uuidString)"
   let defaults = UserDefaults(suiteName: suite)!
   defer { defaults.removePersistentDomain(forName: suite) }
@@ -766,7 +767,7 @@ func runSelfTests() {
   window.contentView = hosting
   window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
   hosting.layoutSubtreeIfNeeded()
-  RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+  try? await Task.sleep(nanoseconds: 300_000_000)
   hosting.layoutSubtreeIfNeeded()
   guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { exit(1) }
   hosting.cacheDisplay(in: hosting.bounds, to: rep)

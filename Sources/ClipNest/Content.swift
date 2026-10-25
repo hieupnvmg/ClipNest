@@ -1,5 +1,4 @@
 import AppKit
-import ImageIO
 import SwiftUI
 
 struct Glass: NSViewRepresentable {
@@ -52,24 +51,6 @@ final class PreviewCache {
     images.totalCostLimit = 32 * 1024 * 1024
     icons.countLimit = 100
   }
-  func image(_ clip: Clip) -> NSImage? {
-    let key = clip.id.uuidString as NSString
-    if let i = images.object(forKey: key) { return i }
-    guard let data = clip.data, let source = CGImageSourceCreateWithData(data as CFData, nil),
-      let thumbnail = CGImageSourceCreateThumbnailAtIndex(
-        source, 0,
-        [
-          kCGImageSourceCreateThumbnailFromImageAlways: true,
-          kCGImageSourceCreateThumbnailWithTransform: true,
-          kCGImageSourceThumbnailMaxPixelSize: 600,
-          kCGImageSourceShouldCacheImmediately: true,
-        ] as CFDictionary)
-    else { return nil }
-    let image = NSImage(
-      cgImage: thumbnail, size: NSSize(width: thumbnail.width, height: thumbnail.height))
-    images.setObject(image, forKey: key, cost: thumbnail.bytesPerRow * thumbnail.height)
-    return image
-  }
   func icon(_ clip: Clip) -> NSImage? {
     guard let bid = clip.bundleID else { return nil }
     if let i = icons.object(forKey: bid as NSString) { return i }
@@ -84,12 +65,11 @@ final class PreviewCache {
 private struct ClipboardDragModifier: ViewModifier {
   let allowed: Bool
   let item: Clip
+  let store: Store
   @ViewBuilder func body(content: Content) -> some View {
     if allowed {
       content.onDrag {
-        if item.kind == "Image", let data = item.data {
-          return NSItemProvider(item: data as NSData, typeIdentifier: "public.png")
-        }
+        if item.kind == "Image" { return store.imageProvider(item) }
         return NSItemProvider(object: item.text as NSString)
       }
     } else {
@@ -99,6 +79,7 @@ private struct ClipboardDragModifier: ViewModifier {
 }
 struct ClipCard: View {
   let clip: Clip
+  let store: Store
   let selected: Bool
   let number: Int
   var masked = false
@@ -179,19 +160,7 @@ struct ClipCard: View {
   @ViewBuilder var preview: some View {
     switch clip.kind {
     case "Image":
-      if let img = PreviewCache.shared.image(clip) {
-        GeometryReader { geo in
-          Image(nsImage: img).resizable().scaledToFill().frame(
-            width: geo.size.width, height: geo.size.height
-          ).clipped()
-        }
-        .overlay(alignment: .bottom) {
-          Text(clip.text).font(.system(size: 10)).padding(.horizontal, 7).padding(.vertical, 3)
-            .background(.regularMaterial, in: Capsule()).padding(9)
-        }
-      } else {
-        Image(systemName: "photo").font(.largeTitle).foregroundStyle(.secondary)
-      }
+      DeferredImagePreview(clip: clip, store: store)
     case "Link":
       VStack(spacing: 0) {
         ZStack {
@@ -259,7 +228,7 @@ struct ClipboardContent: View {
               ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 let masked = store.isMasked(item)
                 ClipCard(
-                  clip: store.displayClip(item), selected: selectedID == item.id, number: index,
+                  clip: store.displayClip(item), store: store, selected: selectedID == item.id, number: index,
                   masked: masked, revealed: store.revealedSensitiveIDs.contains(item.id),
                   protectionLabel: store.sensitiveProtectionEnabled
                     ? store.protection(for: item).label : "",
@@ -278,7 +247,7 @@ struct ClipboardContent: View {
                   (NSApp.delegate as? AppDelegate)?.focusCards()
                 }
                 .contextMenu { cardMenu(item) }
-                .modifier(ClipboardDragModifier(allowed: !masked, item: item))
+                .modifier(ClipboardDragModifier(allowed: !masked, item: item, store: store))
               }
             }.padding(.horizontal, 20).padding(.vertical, 8)
           }
@@ -433,8 +402,7 @@ struct ClipboardContent: View {
     Button("Paste as Plain Text") { store.copy(item, plain: true) }.disabled(
       item.kind == "Image" || item.kind == "Files")
     Button("Copy Only") {
-      store.writeClipboard(item)
-      store.toast = "Copied to clipboard"
+      store.copyOnly(item)
     }
     Divider()
     Menu("Move to Pinboard") {
