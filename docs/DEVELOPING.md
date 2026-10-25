@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 160 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 172 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -76,3 +76,19 @@ swift scripts/make-demo-gif.swift /path/to/frames docs/demo.gif
 ```
 
 Script dùng AppKit/ImageIO có sẵn, tạo GIF 1200×420, 24 frame, lặp 8,2 giây. Giữ ảnh tĩnh sáng/tối trong README. Không cần build/phát hành phiên bản app mới cho thay đổi tài liệu này.
+
+## Tối ưu 0.5.7
+
+Capture tạo snapshot hoàn chỉnh rồi publish clips một lần. Retention không cấp phát danh sách mới/publish nếu chưa vượt giới hạn; mục loại bỏ giải phóng thumbnail và privacy cache, hủy reveal nếu có. didWrite và hideReveal bỏ qua Published assignment không đổi. HistoryDatabase bỏ qua transaction khi cả nội dung và thứ tự không đổi, nhưng luôn commit migration/Clear. PanelContent chỉ quan sát visibility; ClipboardContent được unmount khi ẩn, mount lại từ Store hiện tại khi mở. Store và capture timer vẫn hoạt động khi ẩn.
+
+Chạy `../ClipNest.app/Contents/MacOS/ClipNest --performance-check` bằng dữ liệu giả + pasteboard riêng. Đo trên cùng máy, release build, 1.000 mục văn bản (~1 KB/mục):
+
+| Phép đo | Trước | Sau |
+| --- | --- | --- |
+| 100 lần trim không thay đổi | 100 lần publish clips | 0 |
+| Copy lại một mục | 3 lần publish clips | 1 |
+| 100 lần save SQLite không thay đổi | 113,20 ms | 68,90 ms |
+
+Đây là microbenchmark một lần, không phải tốc độ toàn app hay đo CPU/GPU khi sử dụng thật. 172 integration checks gồm SQLite no-op/migration, retention, thumbnail eviction và native search field mount/unmount khi panel ẩn/hiện. Chưa đo bằng Instruments.
+
+Giới hạn còn lại: load history vẫn đọc toàn bộ payload ảnh vào RAM; cache thumbnail đã giới hạn 32 MB không giới hạn tổng ảnh gốc. Nếu cần lịch sử rất nhiều ảnh, bước kiến trúc tiếp theo là tải payload từ SQLite theo nhu cầu. Không thay đổi schema hoặc cách lưu dữ liệu trong đợt này.

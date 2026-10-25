@@ -266,11 +266,18 @@ func runSelfTests() {
   let incremental = try! HistoryDatabase(
     url: folder.appendingPathComponent("incremental/history.sqlite3"))
   try! incremental.save(legacyClips)
-  let previousChanges = incremental.totalChanges
+  var previousChanges = incremental.totalChanges
+  let previousTransactions = incremental.writeTransactions
   try! incremental.save(legacyClips)
   check(
     incremental.totalChanges == previousChanges, "Saving unchanged history performs zero row writes"
   )
+  check(incremental.writeTransactions == previousTransactions,
+    "Saving unchanged history does not start a SQLite transaction")
+  try! incremental.save(legacyClips, markMigration: true)
+  check(incremental.writeTransactions == previousTransactions + 1,
+    "Unchanged snapshot still commits migration metadata when requested")
+  previousChanges = incremental.totalChanges
   var edited = legacyClips
   edited[0].title = "Updated label"
   try! incremental.save(edited)
@@ -581,6 +588,78 @@ func runSelfTests() {
   check(GlassRendering.resolve(style: .liquidGlass, reduceTransparency: true, supportsLiquid: true) == .solid
     && GlassRendering.resolve(style: .standard, reduceTransparency: true, supportsLiquid: false) == .solid,
     "Reduce Transparency replaces either style with an opaque backdrop")
+  let optimized = Store(folder: folder.appendingPathComponent("optimized"), defaults: defaults,
+    pasteboard: pb, monitoring: false)
+  let pinned = Clip(source: "Test", kind: "Text", text: "Pinned", board: "Work")
+  let retained = Clip(source: "Test", kind: "Text", text: "Keep", title: "Keep title")
+  let expired = Clip(source: "Test", kind: "Image", text: "Expired", data: Data([1, 2]))
+  optimized.clips = [pinned, retained, expired]
+  optimized.selected = expired.id
+  optimized.retention = 1
+  let expiredKey = expired.id.uuidString as NSString
+  let retainedKey = retained.id.uuidString as NSString
+  PreviewCache.shared.images.setObject(NSImage(size: NSSize(width: 1, height: 1)), forKey: expiredKey)
+  PreviewCache.shared.images.setObject(NSImage(size: NSSize(width: 1, height: 1)), forKey: retainedKey)
+  var publications = 0
+  let listObservation = optimized.$clips.dropFirst().sink { _ in publications += 1 }
+  optimized.trim()
+  check(optimized.clips.map(\.id) == [pinned.id, retained.id] && publications == 1,
+    "Retention publishes one final list while preserving pinned items")
+  check(optimized.selected == pinned.id && PreviewCache.shared.images.object(forKey: expiredKey) == nil,
+    "Retention repairs expired selection and evicts its thumbnail")
+  publications = 0
+  optimized.trim()
+  check(publications == 0 && PreviewCache.shared.images.object(forKey: retainedKey) != nil,
+    "Unchanged retention does not publish or evict a retained thumbnail")
+  pb.clearContents()
+  pb.setString(retained.text, forType: .string)
+  optimized.capture(source: "Test", bundleID: "test.optimized")
+  check(publications == 1 && optimized.clips.first?.id == retained.id
+    && optimized.clips.first?.title == retained.title && optimized.clips.count == 2,
+    "Recapture deduplicates in a single publication and preserves metadata")
+  optimized.remove(retained)
+  check(PreviewCache.shared.images.object(forKey: retainedKey) == nil,
+    "Deleting an item immediately releases its cached thumbnail")
+  optimized.retention = 0
+  publications = 0
+  optimized.trim()
+  check(publications == 0, "Unlimited retention does not rebuild the list")
+  withExtendedLifetime(listObservation) {}
+
+  let visibility = PanelPresentation()
+  optimized.searchVisible = true
+  let lifecycleHost = NSHostingView(rootView: PanelContent(presentation: visibility) {
+    ClipboardContent(store: optimized)
+  })
+  lifecycleHost.frame = NSRect(x: 0, y: 0, width: 900, height: 346)
+  let lifecycleWindow = NSWindow(contentRect: lifecycleHost.frame, styleMask: [.borderless],
+    backing: .buffered, defer: false)
+  lifecycleWindow.isReleasedWhenClosed = false
+  lifecycleWindow.contentView = lifecycleHost
+  func containsSearch(_ view: NSView) -> Bool {
+    view is NSSearchField || view.subviews.contains(where: containsSearch)
+  }
+  func settlePanel() {
+    lifecycleHost.layoutSubtreeIfNeeded()
+    RunLoop.current.run(until: Date().addingTimeInterval(0.08))
+    lifecycleHost.layoutSubtreeIfNeeded()
+  }
+  settlePanel()
+  check(!containsSearch(lifecycleHost), "Hidden panel does not construct clipboard controls")
+  visibility.isVisible = true
+  settlePanel()
+  check(containsSearch(lifecycleHost), "Opening panel mounts the native search field")
+  visibility.isVisible = false
+  settlePanel()
+  optimized.query = "Background change"
+  optimized.clips.append(Clip(source: "Test", kind: "Text", text: "Background change"))
+  settlePanel()
+  check(!containsSearch(lifecycleHost), "Hidden captures leave clipboard controls unmounted")
+  visibility.isVisible = true
+  settlePanel()
+  check(containsSearch(lifecycleHost) && optimized.filtered.count == 1,
+    "Reopening panel restores controls with the latest history and query")
+  lifecycleWindow.close()
   checks += runSensitiveContentTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
@@ -697,4 +776,40 @@ func runSelfTests() {
 
 private final class NavigationTestPanel: NSPanel {
   override var isVisible: Bool { true }
+}
+
+// Reproducible developer benchmark. Uses synthetic history and a private pasteboard.
+func runPerformanceChecks() {
+  let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ClipNest-perf-\(UUID())")
+  let suite = "ClipNest.perf.\(UUID())"
+  let defaults = UserDefaults(suiteName: suite)!
+  let pb = NSPasteboard.withUniqueName()
+  defer {
+    defaults.removePersistentDomain(forName: suite)
+    pb.releaseGlobally()
+    try? FileManager.default.removeItem(at: folder)
+  }
+  let fixtures = (0..<1000).map { Clip(source: "Benchmark", kind: "Text",
+    text: "Sample \($0) " + String(repeating: "clipboard ", count: 100)) }
+  let db = try! HistoryDatabase(url: folder.appendingPathComponent("db/history.sqlite3"))
+  try! db.save(fixtures)
+  let start = ProcessInfo.processInfo.systemUptime
+  for _ in 0..<100 { try! db.save(fixtures) }
+  let elapsed = (ProcessInfo.processInfo.systemUptime - start) * 1000
+  let store = Store(folder: folder.appendingPathComponent("store"), defaults: defaults,
+    pasteboard: pb, monitoring: false)
+  store.clips = fixtures
+  store.selected = fixtures[0].id
+  store.retention = 1000
+  var changes = 0
+  let observation = store.$clips.dropFirst().sink { _ in changes += 1 }
+  for _ in 0..<100 { store.trim() }
+  print("Unchanged trims (100): \(changes) list publications")
+  changes = 0
+  pb.clearContents()
+  pb.setString(fixtures[500].text, forType: .string)
+  store.capture(source: "Benchmark", bundleID: "clipnest.benchmark")
+  print("Recapture existing item: \(changes) list publications")
+  print(String(format: "Unchanged SQLite saves (100 × 1000 items): %.2f ms", elapsed))
+  withExtendedLifetime(observation) {}
 }

@@ -11,6 +11,7 @@ final class HistoryDatabase {
   private var connection: OpaquePointer?
   private var persisted: [UUID: Clip] = [:]
   private var positions: [UUID: Int] = [:]
+  private(set) var writeTransactions = 0
   let url: URL
   private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
@@ -177,11 +178,17 @@ final class HistoryDatabase {
     return result
   }
   func save(_ clips: [Clip], markMigration: Bool = false) throws {
+    // No lock, transaction or statement preparation for an unchanged snapshot.
+    // Migration/Clear must still commit their metadata even when history is empty.
+    if !markMigration, clips.count == persisted.count,
+      clips.enumerated().allSatisfy({ positions[$0.element.id] == $0.offset && persisted[$0.element.id] == $0.element })
+    { return }
     let ids = Set(clips.map(\.id))
     guard ids.count == clips.count else {
       throw DatabaseError(message: "Duplicate clipboard IDs; history has not been modified.")
     }
     try execute("BEGIN IMMEDIATE")
+    writeTransactions += 1
     do {
       let remove = try prepare("DELETE FROM clips WHERE id=?")
       defer { sqlite3_finalize(remove) }

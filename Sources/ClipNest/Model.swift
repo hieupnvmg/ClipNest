@@ -206,8 +206,8 @@ final class Store: ObservableObject {
     guard revision == saveRevision else { return }
     switch result {
     case .success(let bytes):
-      storageBytes = bytes
-      error = nil
+      if storageBytes != bytes { storageBytes = bytes }
+      if error != nil { error = nil }
       pendingSnapshot = nil
     case .failure(let failure):
       error = "History could not be saved: \(failure.localizedDescription)"
@@ -337,7 +337,8 @@ final class Store: ObservableObject {
   }
   func hideRevealedSensitiveItem(_ id: UUID) {
     revealTasks.removeValue(forKey: id)?.cancel()
-    if revealedSensitiveIDs.contains(id), editing?.id == id {
+    guard revealedSensitiveIDs.contains(id) else { return }
+    if editing?.id == id {
       editing = nil
       editedText = ""
       editedTitle = ""
@@ -348,13 +349,35 @@ final class Store: ObservableObject {
     let ids = revealedSensitiveIDs
     for id in ids { hideRevealedSensitiveItem(id) }
   }
-  func trim() {
-    guard retention > 0 else { return }
+  private func forgetCachedItem(_ id: UUID) {
+    hideRevealedSensitiveItem(id)
+    protectedPresentations.removeObject(forKey: id as NSUUID)
+    PreviewCache.shared.images.removeObject(forKey: id.uuidString as NSString)
+  }
+  private func retaining(_ snapshot: [Clip]) -> [Clip] {
+    guard retention > 0 else { return snapshot }
     var unpinned = 0
-    clips = clips.filter {
-      if $0.board != nil { return true }
+    // Scan without allocating a new array if no item exceeds the limit.
+    let exceedsLimit = snapshot.contains { item in
+      if item.board == nil { unpinned += 1 }
+      return unpinned > retention
+    }
+    guard exceedsLimit else { return snapshot }
+    unpinned = 0
+    return snapshot.filter { item in
+      if item.board != nil { return true }
       unpinned += 1
-      return unpinned <= retention
+      if unpinned <= retention { return true }
+      forgetCachedItem(item.id)
+      return false
+    }
+  }
+  func trim() {
+    let kept = retaining(clips)
+    guard kept.count != clips.count else { return }
+    clips = kept
+    if let selected, !clips.contains(where: { $0.id == selected }) {
+      self.selected = filtered.first?.id
     }
   }
   func capture(source: String? = nil, bundleID: String? = nil) {
@@ -391,17 +414,18 @@ final class Store: ObservableObject {
     }
     guard var item = clip else { return }
     item.bundleID = bid
-    if let old = clips.first(where: {
+    var next = clips
+    if let index = next.firstIndex(where: {
       $0.kind == item.kind && $0.text == item.text && $0.data == item.data && $0.html == item.html
     }) {
+      let old = next.remove(at: index)
       item.id = old.id
       item.title = old.title
       item.board = old.board
-      clips.removeAll { $0.id == old.id }
     }
-    clips.insert(item, at: 0)
-    if selected == nil { selected = item.id }
-    trim()
+    next.insert(item, at: 0)
+    clips = retaining(next) // Publish one complete update, never intermediate lists.
+    if selected == nil || !clips.contains(where: { $0.id == selected }) { selected = item.id }
     save()
   }
   private func imageContent(from pasteboard: NSPasteboard) -> (data: Data, dimensions: String)? {
@@ -453,8 +477,7 @@ final class Store: ObservableObject {
     }
   }
   func remove(_ item: Clip) {
-    hideRevealedSensitiveItem(item.id)
-    protectedPresentations.removeObject(forKey: item.id as NSUUID)
+    forgetCachedItem(item.id)
     clips.removeAll { $0.id == item.id }
     selected = filtered.first?.id
     save()

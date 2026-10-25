@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   var status: NSStatusItem!
   var previous: NSRunningApplication?
   let shortcuts = ShortcutRegistrar()
+  let panelPresentation = PanelPresentation()
   var keyMonitor: Any?
   var clickMonitor: Any?
   var workspaceMonitor: NSObjectProtocol?
@@ -37,7 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panel.isOpaque = false
     panel.hasShadow = true
     panel.hidesOnDeactivate = false
-    panel.contentView = NSHostingView(rootView: ClipboardContent(store: store))
+    let model = store
+    panel.contentView = NSHostingView(rootView: PanelContent(presentation: panelPresentation) {
+      ClipboardContent(store: model)
+    })
     status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     status.button?.image = NSImage(
       systemSymbolName: "square.on.square", accessibilityDescription: "ClipNest")
@@ -126,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       display: true)
     store.searchVisible = true
     store.selected = store.filtered.first?.id
+    panelPresentation.isVisible = true
     panel.makeKeyAndOrderFront(nil)
     focusSearch()
   }
@@ -133,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     store.hideRevealedSensitiveItems()
     if store.recordingShortcut { cancelShortcutRecording() }
     panel.orderOut(nil)
+    panelPresentation.isVisible = false
   }
   func beginShortcutRecording() {
     shortcuts.suspend()
@@ -259,6 +265,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc func quit() { NSApp.terminate(nil) }
 }
 let app = NSApplication.shared
+if CommandLine.arguments.contains("--performance-check") {
+  runPerformanceChecks()
+  exit(0)
+}
 if CommandLine.arguments.contains("--self-test") {
   runSelfTests()
   exit(0)
