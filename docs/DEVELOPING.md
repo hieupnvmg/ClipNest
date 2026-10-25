@@ -66,3 +66,13 @@ AccessibilityOnboarding lưu việc đã hỏi hoặc đã thấy trusted. Relau
 InterfaceStyle được lưu trong UserDefaults; mặc định Liquid Glass. ClipboardBackdrop dùng glassEffect chính chủ từ macOS 26, nhánh availability giữ minimum macOS 13. Standard và máy cũ dùng NSVisualEffectView. Reduce Transparency ưu tiên nền đặc cho cả hai style. Chỉ một bề mặt glass cho cửa sổ, nhóm control dùng viền/tint tĩnh, không blur riêng từng thẻ, không shader ngoài, timer hay animation thêm. Slider chỉ tác động backdrop, không làm mờ nội dung.
 
 Self-test kiểm tra persistence, dữ liệu preference lỗi, lựa chọn rendering và accessibility. Preview hỗ trợ --standard-preview, --search-preview, --dark-preview. Bitmap offscreen chỉ kiểm tra bố cục, không thay thế đánh giá glass/GPU trong cửa sổ thật trên desktop. Chưa benchmark GPU hoặc thử runtime trên macOS 13–15.
+
+## README demo GIF
+
+`docs/demo.gif` được ghép từ ảnh preview offscreen của app bằng dữ liệu mẫu, không quay desktop/clipboard thật. `--preview-query <text>` và `--preview-selection <index>` chỉ phục vụ `--render-preview`. Không gọi copy/paste thật. Tạo các ảnh open.png, search.png, query-0.png đến query-5.png (d/de/des/desi/desig/design), selected.png (design, selection 1), sau đó chạy:
+
+```sh
+swift scripts/make-demo-gif.swift /path/to/frames docs/demo.gif
+```
+
+Script dùng AppKit/ImageIO có sẵn, tạo GIF 1200×420, 24 frame, lặp 8,2 giây. Giữ ảnh tĩnh sáng/tối trong README. Không cần build/phát hành phiên bản app mới cho thay đổi tài liệu này.

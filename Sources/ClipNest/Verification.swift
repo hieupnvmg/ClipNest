@@ -661,6 +661,16 @@ func runSelfTests() {
   }
   store.selected = store.clips.first?.id
   if CommandLine.arguments.contains("--search-preview") { store.searchVisible = true }
+  if let i = CommandLine.arguments.firstIndex(of: "--preview-query"), i + 1 < CommandLine.arguments.count {
+    store.searchVisible = true
+    store.query = CommandLine.arguments[i + 1]
+    store.selected = store.filtered.first?.id
+  }
+  if let i = CommandLine.arguments.firstIndex(of: "--preview-selection"), i + 1 < CommandLine.arguments.count,
+    let index = Int(CommandLine.arguments[i + 1]), store.filtered.indices.contains(index)
+  {
+    store.selected = store.filtered[index].id
+  }
   let dark = CommandLine.arguments.contains("--dark-preview")
   let width: CGFloat = settings ? 560 : 1440
   let height: CGFloat = settings ? 740 : 346

@@ -30,7 +30,14 @@
   <a href="#tiếng-việt">Tiếng Việt</a> &nbsp; | &nbsp; <a href="#english">English</a>
 </p>
 
+![ClipNest — mở app, gõ tìm kiếm và chọn nội dung / open, search, and select with sample content](docs/demo.gif)
+
+<details>
+<summary>Xem ảnh tĩnh · See still screenshots</summary>
+
 ![ClipNest — giao diện sáng với dữ liệu minh họa / light appearance with sample content](docs/preview.png)
+
+</details>
 
 <details>
 <summary>Xem giao diện tối · See dark appearance</summary>
