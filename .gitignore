@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+.DS_Store
+*.dSYM/
+*.sqlite3
+*.sqlite3-*
+history.json*
+Assets/Icon-design.txt
+REVIEW.md
