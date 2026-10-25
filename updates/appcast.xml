@@ -6,6 +6,23 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.6</title>
+            <pubDate>Sun, 25 Oct 2026 13:43:58 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>19</sparkle:version>
+            <sparkle:shortVersionString>0.5.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Liquid Glass
+
+- Thêm giao diện Liquid Glass dùng hiệu ứng chính chủ Apple trên macOS 26 trở lên.
+- Khung cửa sổ trong suốt, thanh tìm kiếm và nhóm pinboard có viền nhẹ. Thẻ clipboard giữ nền rõ để dễ đọc.
+- Chuyển giữa Standard và Liquid Glass tại Settings → Appearance.
+- macOS cũ dùng nền mờ có sẵn; tôn trọng Reduce Transparency của hệ thống.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.6/ClipNest-0.5.6-Apple-Silicon.dmg" length="2972389" type="application/octet-stream" sparkle:edSignature="FX8Sum8n0PZxXXplC9k4j8Cr+lfTFjrpVy6GygR8l9XjLFd6+OQ3K3fwCHsEEKw45NdE1T6RAExRVwKIIOQFBA=="/>
+        </item>
+        <item>
             <title>0.5.5</title>
             <pubDate>Sun, 25 Oct 2026 13:33:55 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -38,30 +55,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.4/ClipNest-0.5.4-Apple-Silicon.dmg" length="2918312" type="application/octet-stream" sparkle:edSignature="eC6UInGzQARaocJSPa6KuS87Fmv+gedwxciUQqngqjpoJcHLI1CriO2Oo/pFyW6Ag9ML40EVxVhuruJfFDioDg=="/>
         </item>
-        <item>
-            <title>0.5.3</title>
-            <pubDate>Sun, 25 Oct 2026 13:22:43 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>16</sparkle:version>
-            <sparkle:shortVersionString>0.5.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# ClipNest 0.5.3
-
-Thay đổi **Tự bảo vệ nội dung nhạy cảm** sang **chỉ che, vẫn lưu và dán nguyên bản**:
-
-- Không còn tự bỏ qua mật khẩu, token/API key hoặc dữ liệu cá nhân theo pattern.
-- Các nội dung nhận diện được vẫn được lưu trong lịch sử, chỉ che trên thẻ.
-- Hiện tạm 15 giây rồi tự che lại. Dán dùng chính xác nội dung gốc.
-- Bỏ lựa chọn Không lưu theo pattern; các ứng dụng loại trừ và marker clipboard vẫn giữ như trước.
-
-Lưu ý: bản gốc được lưu trên máy, che không phải mã hóa. Pattern có thể bỏ sót; chưa OCR ảnh.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.3/ClipNest-0.5.3-Apple-Silicon.dmg" length="2918724" type="application/octet-stream" sparkle:edSignature="9orhBhbYCdnhCW3VIsg7tEW1hEDC7El1ecyoF2PF8rfRr6oWFYIrurV1UPD5iiR2GnFaQYkTfqirU6Z+NHNPCw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: +/P4IHTeEcIBoZWBEZMYVeMm0TMgbCCFWkmP0bdyeFZU06Ytza+N3n9v6gzA5R6pacDW+kkFLKaZQSLTKLneCw==
-length: 4324
+edSignature: TRJl4hyiAC4RDOpgpmSy4o8yiT6/pjJUAhPgidYhXu9L+gUEgNRwHeoj23ifZAmN873PybuhLnt6eaOUmBWGBw==
+length: 4080
 -->
