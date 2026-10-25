@@ -1,0 +1,31 @@
+<?xml version="1.0" standalone="yes"?>
+<!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+-->
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>ClipNest</title>
+        <item>
+            <title>0.4.0</title>
+            <pubDate>Sun, 25 Oct 2026 09:33:17 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# ClipNest 0.4.0
+
+- Cập nhật ngay trong app: tự kiểm tra bản mới hoặc dùng Check for Updates trong Settings.
+- Chỉnh độ trong suốt của nền bằng thanh kéo; thay đổi được lưu tự động.
+- Tự nhắc cấp quyền Accessibility khi mở app nếu chưa có quyền, kèm nút mở Settings và trạng thái quyền.
+
+Lịch sử clipboard được giữ nguyên khi cập nhật. Bản 0.3.1 trở về trước cần cài thủ công bản này một lần để có OTA cho các lần sau.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.4.0/ClipNest-0.4.0-Apple-Silicon.dmg" length="2556593" type="application/octet-stream" sparkle:edSignature="qYK14L62flLlwAEWK8yY/9O5ib4NDP3kFaDlJWuDO7Dt2FGIa6kU/8u/9smZQ5/QqiR/IfHPhCfUYDU88L7qDg=="/>
+        </item>
+    </channel>
+</rss>
+<!-- sparkle-signatures:
+edSignature: KzPGnsW4ibOmL3sI2NCjXc5yJz4504Fte96kEOPv5o1CmKb6j9AclC0/OyYam0vParCearnE4uhA9vGvqd61Dw==
+length: 1800
+-->
