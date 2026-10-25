@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 153 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 160 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -60,3 +60,9 @@ Khi phát hành, upload asset và push feed xong, kiểm tra feed qua đúng end
 LoginItemService dùng SMAppService.mainApp, đọc trạng thái thật thay vì lưu một boolean riêng. Không tự register khi mở app; chỉ khi người dùng bật Settings. requiresApproval có nút mở Login Items. Tests dùng service giả để tránh thay đổi Login Items của máy. Chưa kiểm tra qua một phiên đăng nhập macOS thật.
 
 AccessibilityOnboarding lưu việc đã hỏi hoặc đã thấy trusted. Relaunch không hỏi lại khi denied/revoked; nút Settings vẫn chủ động xin quyền. Bản ad-hoc thay binary có thể bị macOS thu hồi trust; không giả lập hoặc bỏ qua trạng thái AXIsProcessTrusted.
+
+## Liquid Glass
+
+InterfaceStyle được lưu trong UserDefaults; mặc định Liquid Glass. ClipboardBackdrop dùng glassEffect chính chủ từ macOS 26, nhánh availability giữ minimum macOS 13. Standard và máy cũ dùng NSVisualEffectView. Reduce Transparency ưu tiên nền đặc cho cả hai style. Chỉ một bề mặt glass cho cửa sổ, nhóm control dùng viền/tint tĩnh, không blur riêng từng thẻ, không shader ngoài, timer hay animation thêm. Slider chỉ tác động backdrop, không làm mờ nội dung.
+
+Self-test kiểm tra persistence, dữ liệu preference lỗi, lựa chọn rendering và accessibility. Preview hỗ trợ --standard-preview, --search-preview, --dark-preview. Bitmap offscreen chỉ kiểm tra bố cục, không thay thế đánh giá glass/GPU trong cửa sổ thật trên desktop. Chưa benchmark GPU hoặc thử runtime trên macOS 13–15.

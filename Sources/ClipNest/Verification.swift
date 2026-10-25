@@ -565,6 +565,22 @@ func runSelfTests() {
     "Trusted launch never asks for Accessibility")
   check(!AccessibilityOnboarding.consumeAutomaticRequest(trusted: false, defaults: onboarding),
     "Previously trusted user is not prompted again after trust changes")
+  check(InterfaceStyle.load(from: defaults) == .liquidGlass, "New appearance defaults to Liquid Glass")
+  shortcutStore.interfaceStyle = .standard
+  let styleRelaunch = Store(folder: folder.appendingPathComponent("style-relaunch"),
+    defaults: defaults, pasteboard: pb, monitoring: false)
+  check(styleRelaunch.interfaceStyle == .standard, "Appearance style survives relaunch")
+  defaults.set("unknown-style", forKey: "interfaceStyle")
+  check(InterfaceStyle.load(from: defaults) == .liquidGlass, "Unknown appearance falls back safely")
+  check(GlassRendering.resolve(style: .liquidGlass, reduceTransparency: false, supportsLiquid: true) == .liquid,
+    "Liquid Glass uses native rendering on supported macOS")
+  check(GlassRendering.resolve(style: .liquidGlass, reduceTransparency: false, supportsLiquid: false) == .material,
+    "Older macOS uses built-in material")
+  check(GlassRendering.resolve(style: .standard, reduceTransparency: false, supportsLiquid: true) == .material,
+    "Standard style remains available on new macOS")
+  check(GlassRendering.resolve(style: .liquidGlass, reduceTransparency: true, supportsLiquid: true) == .solid
+    && GlassRendering.resolve(style: .standard, reduceTransparency: true, supportsLiquid: false) == .solid,
+    "Reduce Transparency replaces either style with an opaque backdrop")
   checks += runSensitiveContentTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
@@ -580,6 +596,7 @@ func runSelfTests() {
   let store = Store(
     folder: previewFolder,
     defaults: defaults, pasteboard: pb, monitoring: false)
+  if CommandLine.arguments.contains("--standard-preview") { store.interfaceStyle = .standard }
   store.boards = ["Useful Links", "Important Notes", "Email Templates", "Code Snippets"]
   // Synthetic sample content used only for the preview; never added to real history.
   let img = NSImage(size: NSSize(width: 500, height: 400))
@@ -643,6 +660,8 @@ func runSelfTests() {
       ], at: 0)
   }
   store.selected = store.clips.first?.id
+  if CommandLine.arguments.contains("--search-preview") { store.searchVisible = true }
+  let dark = CommandLine.arguments.contains("--dark-preview")
   let width: CGFloat = settings ? 560 : 1440
   let height: CGFloat = settings ? 740 : 346
   let content =
@@ -650,13 +669,13 @@ func runSelfTests() {
     ? AnyView(ClipboardContent(store: store).preferences) : AnyView(ClipboardContent(store: store))
   let root = content.frame(width: width, height: height).background(
     Color(nsColor: .windowBackgroundColor)
-  ).environment(\.colorScheme, .light)
+  ).environment(\.colorScheme, dark ? .dark : .light)
   let hosting = NSHostingView(rootView: root)
   hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
   let window = NSWindow(
     contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
   window.contentView = hosting
-  window.appearance = NSAppearance(named: .aqua)
+  window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
   hosting.layoutSubtreeIfNeeded()
   RunLoop.current.run(until: Date().addingTimeInterval(0.3))
   hosting.layoutSubtreeIfNeeded()

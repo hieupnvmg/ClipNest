@@ -293,7 +293,7 @@ struct ClipboardContent: View {
       footer.padding(.horizontal, 22).frame(height: 26)
     }
     .frame(minWidth: 780, minHeight: 346)
-    .background(Glass(opacity: store.backgroundOpacity))
+    .background(ClipboardBackdrop(style: store.interfaceStyle, opacity: store.backgroundOpacity))
     .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.3), lineWidth: 1))
     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     .alert("New Pinboard", isPresented: $store.adding) {
@@ -316,6 +316,9 @@ struct ClipboardContent: View {
     HStack(spacing: 10) {
       if store.searchVisible {
         SearchField(text: $store.query).frame(width: 220)
+          .padding(.horizontal, store.interfaceStyle == .liquidGlass ? 8 : 0)
+          .padding(.vertical, store.interfaceStyle == .liquidGlass ? 5 : 0)
+          .modifier(GlassControlSurface(enabled: store.interfaceStyle == .liquidGlass))
         Button {
           store.query = ""
           store.searchVisible = false
@@ -353,6 +356,9 @@ struct ClipboardContent: View {
             Image(systemName: "plus").font(.system(size: 15)).frame(width: 28, height: 28)
           }.buttonStyle(.plain).foregroundStyle(.secondary).help("New pinboard")
         }
+        .padding(.horizontal, store.interfaceStyle == .liquidGlass ? 5 : 0)
+        .padding(.vertical, store.interfaceStyle == .liquidGlass ? 3 : 0)
+        .modifier(GlassControlSurface(enabled: store.interfaceStyle == .liquidGlass))
       }.fixedSize(horizontal: false, vertical: true)
       Spacer(minLength: 0)
       Menu {
@@ -467,6 +473,13 @@ struct ClipboardContent: View {
             Text("\(Int(store.backgroundOpacity * 100))%").monospacedDigit().foregroundStyle(
               .secondary)
           }
+          Picker("Style", selection: $store.interfaceStyle) {
+            ForEach(InterfaceStyle.allCases) { style in Text(style.label).tag(style) }
+          }.pickerStyle(.segmented)
+          Text(GlassRendering.supportsLiquid
+            ? "Liquid Glass uses Apple’s native glass effect. Clipboard cards stay readable."
+            : "Liquid Glass uses a frosted background on this Mac. Native Liquid Glass requires macOS 26.")
+            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
           Slider(value: $store.backgroundOpacity, in: 0.35...1, step: 0.05) {
             Text("Background opacity")
           }.labelsHidden().accessibilityLabel("Background opacity")
