@@ -6,6 +6,22 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.1</title>
+            <pubDate>Sun, 25 Oct 2026 13:04:16 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# ClipNest 0.5.1
+
+- Sửa trường hợp kiểm tra OTA đọc lại feed cũ và báo bản 0.4.1 là mới nhất dù đang chạy 0.5.0.
+- Mỗi lần kiểm tra lấy feed mới để tránh cache cũ của máy chủ phân phối.
+- Giữ nguyên xác minh chữ ký cập nhật và toàn bộ lịch sử/cài đặt.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.1/ClipNest-0.5.1-Apple-Silicon.dmg" length="2946335" type="application/octet-stream" sparkle:edSignature="2mEPQkitm7uBvaluWo+fHyv2L8Fnw7y1LBuORNGubPdTnA70CGv2o0NXM4RoRtRCO0KFXVhZf62vz77qZuO9DQ=="/>
+        </item>
+        <item>
             <title>0.5.0</title>
             <pubDate>Sun, 25 Oct 2026 12:49:53 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -42,27 +58,9 @@ Chế độ che vẫn lưu dữ liệu gốc trên máy. Nhận diện có thể
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.4.1/ClipNest-0.4.1-Apple-Silicon.dmg" length="2832353" type="application/octet-stream" sparkle:edSignature="86zprWJJlKFfJYPcVuglBBkU2nsWAKaMS7myJA3IeZI4WCPLzV6DxktxiGwYBiLjSiFnMApaB3X/x/udB0bOBg=="/>
         </item>
-        <item>
-            <title>0.4.0</title>
-            <pubDate>Sun, 25 Oct 2026 09:33:17 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# ClipNest 0.4.0
-
-- Cập nhật ngay trong app: tự kiểm tra bản mới hoặc dùng Check for Updates trong Settings.
-- Chỉnh độ trong suốt của nền bằng thanh kéo; thay đổi được lưu tự động.
-- Tự nhắc cấp quyền Accessibility khi mở app nếu chưa có quyền, kèm nút mở Settings và trạng thái quyền.
-
-Lịch sử clipboard được giữ nguyên khi cập nhật. Bản 0.3.1 trở về trước cần cài thủ công bản này một lần để có OTA cho các lần sau.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.4.0/ClipNest-0.4.0-Apple-Silicon.dmg" length="2556593" type="application/octet-stream" sparkle:edSignature="qYK14L62flLlwAEWK8yY/9O5ib4NDP3kFaDlJWuDO7Dt2FGIa6kU/8u/9smZQ5/QqiR/IfHPhCfUYDU88L7qDg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Vh3nynCRKIiD4cGetNfUXzSxhjUAWvPYgWO4Ed+W1iPUDicV/XFXiQ7r8xlTl8F4VD+CU7TcaROItW+st+42BQ==
-length: 4446
+edSignature: SHjt5PwF2tZjal02QCXqAyRaAnsTx7vk2eXLvTTeRAn34nYDrltLgR7tkBe+t7xlhIB3Y6+h5E4iZDuyKdr3AA==
+length: 4241
 -->
