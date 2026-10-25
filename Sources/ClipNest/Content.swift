@@ -457,7 +457,7 @@ struct ClipboardContent: View {
             width: 32, height: 32)
           Text("ClipNest").font(.title2.bold())
           Spacer()
-          Text("0.5.2").foregroundStyle(.secondary)
+          Text("0.5.3").foregroundStyle(.secondary)
         }
         Divider()
         VStack(alignment: .leading, spacing: 8) {
@@ -538,14 +538,10 @@ struct ClipboardContent: View {
           Toggle("Tự bảo vệ nội dung nhạy cảm", isOn: $store.sensitiveProtectionEnabled).font(
             .headline)
           Text(
-            "Tự bỏ qua mật khẩu, token, private key nhận diện được. Không thay đổi clipboard gốc."
+            "Chỉ che khi hiển thị: mật khẩu, token, private key và thông tin cá nhân nhận diện được vẫn được lưu để dán nguyên bản."
           ).font(.caption).foregroundStyle(.secondary)
-          Picker("Thông tin cá nhân", selection: $store.personalDataAction) {
-            Text("Che trên giao diện").tag("mask")
-            Text("Không lưu").tag("skip")
-          }.disabled(!store.sensitiveProtectionEnabled)
           Text(
-            "Email, số điện thoại và số thẻ được che; nút Hiện chỉ mở tạm 15 giây. Chế độ che vẫn lưu nội dung gốc trên máy để dán lại."
+            "Không tự bỏ qua nội dung theo pattern. Nút Hiện mở tạm 15 giây; nội dung gốc vẫn lưu trên máy, không phải mã hóa."
           ).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
           Text(
             "Chỉ nhận diện văn bản, có thể nhầm hoặc bỏ sót; chưa quét chữ trong ảnh. Nội dung cũ được che khi nhận diện, không tự xóa khỏi lịch sử."
@@ -614,9 +610,6 @@ struct ClipboardContent: View {
       if ["Text", "Link", "Color"].contains(item.kind) {
         TextEditor(text: $store.editedText).font(.system(size: 14)).frame(height: 200).border(
           .secondary.opacity(0.2))
-      }
-      if let message = store.editingPrivacyMessage {
-        Text(message).font(.caption).foregroundStyle(.orange)
       }
       HStack {
         Button("Cancel") {

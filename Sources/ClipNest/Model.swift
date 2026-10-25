@@ -77,14 +77,7 @@ final class Store: ObservableObject {
       hideRevealedSensitiveItems()
     }
   }
-  @Published var personalDataAction: String {
-    didSet {
-      defaults.set(personalDataAction, forKey: "personalDataAction")
-      hideRevealedSensitiveItems()
-    }
-  }
   @Published private(set) var revealedSensitiveIDs: Set<UUID> = []
-  @Published var editingPrivacyMessage: String?
   private var revealTasks: [UUID: DispatchWorkItem] = [:]
   private let protectedPresentations: NSCache<NSUUID, ProtectedPresentation> = {
     let cache = NSCache<NSUUID, ProtectedPresentation>()
@@ -143,7 +136,6 @@ final class Store: ObservableObject {
     self.asynchronousSaves = asynchronousSaves ?? monitoring
     sensitiveProtectionEnabled =
       defaults.object(forKey: "sensitiveProtectionEnabled") as? Bool ?? true
-    personalDataAction = defaults.string(forKey: "personalDataAction") == "skip" ? "skip" : "mask"
     backgroundOpacity = AppearancePreferences.load(from: defaults)
     shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
@@ -345,14 +337,6 @@ final class Store: ObservableObject {
     let ids = revealedSensitiveIDs
     for id in ids { hideRevealedSensitiveItem(id) }
   }
-  private func shouldSkipSensitive(_ item: Clip) -> Bool {
-    guard sensitiveProtectionEnabled else { return false }
-    let assessment = ProtectedPresentation(item)
-    return assessment.containsSecret || (personalDataAction == "skip" && assessment.isSensitive)
-  }
-  private func skippedSensitiveItem() {
-    toast = "Đã bỏ qua một nội dung nhạy cảm; clipboard gốc vẫn giữ nguyên."
-  }
   func trim() {
     guard retention > 0 else { return }
     var unpinned = 0
@@ -390,21 +374,12 @@ final class Store: ObservableObject {
     } else if let image = imageContent(from: p) {
       clip = Clip(source: source, kind: "Image", text: image.dimensions, data: image.data)
     } else if let str = p.string(forType: .string), !str.isEmpty, str.utf8.count < 5_000_000 {
-      if sensitiveProtectionEnabled && SensitiveContent.containsSecret(str) {
-        skippedSensitiveItem()
-        return
-      }
       let rtf = p.data(forType: .rtf).flatMap { $0.count <= 5_000_000 ? $0 : nil }
       let html = p.data(forType: .html).flatMap { $0.count <= 5_000_000 ? $0 : nil }
       clip = Clip(source: source, kind: Clip.textKind(str), text: str, data: rtf, html: html)
     }
     guard var item = clip else { return }
     item.bundleID = bid
-    if shouldSkipSensitive(item) {
-      skippedSensitiveItem()
-      return
-    }
-    if toast == "Đã bỏ qua một nội dung nhạy cảm; clipboard gốc vẫn giữ nguyên." { toast = nil }
     if let old = clips.first(where: {
       $0.kind == item.kind && $0.text == item.text && $0.data == item.data && $0.html == item.html
     }) {
@@ -512,7 +487,6 @@ final class Store: ObservableObject {
       toast = "Hiện tạm nội dung trước khi chỉnh sửa."
       return
     }
-    editingPrivacyMessage = nil
     editing = item
     editedText = item.text
     editedTitle = item.title
@@ -527,16 +501,10 @@ final class Store: ObservableObject {
       updated.data = nil
       updated.html = nil
     }
-    guard !shouldSkipSensitive(updated) else {
-      editingPrivacyMessage =
-        "Không lưu: nội dung này được nhận diện là nhạy cảm. Mục gốc chưa thay đổi."
-      return
-    }
     clips[i] = updated
     save()
     editing = nil
     editedText = ""
     editedTitle = ""
-    editingPrivacyMessage = nil
   }
 }

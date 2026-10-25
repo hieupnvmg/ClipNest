@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 142 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 143 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -39,13 +39,13 @@ Opacity chỉ áp dụng cho nền NSVisualEffectView, không làm mờ chữ/th
 
 ## Tự bảo vệ nội dung nhạy cảm
 
-Quy tắc local nằm trong SensitiveContent.swift. Không gọi dịch vụ xác minh token, không gửi clipboard ra mạng, không ghi nội dung phát hiện được vào log. Default bật: secret nhận diện được bị chặn trước khi thêm lịch sử/SQLite; dữ liệu cá nhân được giữ nguyên để dán nhưng che trên giao diện, có lựa chọn không lưu.
+Quy tắc local nằm trong SensitiveContent.swift. Không gọi dịch vụ xác minh token, không gửi clipboard ra mạng, không ghi nội dung phát hiện được vào log. Từ 0.5.3, default bật là mask-only cho cả secret và thông tin cá nhân: raw lưu trong SQLite để dán nguyên bản, presentation che khi nhận diện. Không còn skip theo pattern, kể cả qua editor; personalDataAction của bản cũ không còn được sử dụng. Danh sách app loại trừ và marker clipboard vẫn được giữ riêng.
 
 Kiểm tra cả plain text, nhãn, HTML và RTF. Ảnh không được OCR. Số thẻ cần qua Luhn; regex email/phone có giới hạn, không bảo đảm phát hiện mọi dữ liệu nhạy cảm. Nội dung cũ/migration được che khi trình bày, không âm thầm xóa dữ liệu cũ.
 
 Presentation được cache có giới hạn, bản dùng để render loại bỏ payload gốc khi che; cả nhãn accessibility dùng bản này. Mục đang che không gắn onDrag và không được mở editor trước khi reveal. Copy/paste là thao tác chủ động và dùng nguyên bản. Reveal hết hạn sau 15 giây hoặc khi bảng ẩn; editor đang hiển thị nội dung được bảo vệ cũng đóng và xóa draft khi hết hạn.
 
-Các mẫu credential trong test đều là dữ liệu giả dựng tại runtime. Kiểm tra bao gồm không ghi secret vào SQLite, không thay clipboard, masking Unicode, Luhn, rich text, cache, preference, thời hạn reveal và editor.
+Các mẫu credential trong test đều là dữ liệu giả dựng tại runtime. Kiểm tra bao gồm lưu/mở lại secret nguyên bản trong SQLite, dán chính xác khi đang che, không thay clipboard, masking Unicode, Luhn, rich text, cache, preference, thời hạn reveal và editor.
 
 Tham khảo định dạng: [GitHub secret-scanning patterns](https://docs.github.com/en/code-security/reference/secret-security/supported-secret-scanning-patterns), [Stripe authentication](https://docs.stripe.com/api/authentication).
 

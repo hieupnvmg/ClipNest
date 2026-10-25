@@ -97,26 +97,41 @@ func runSensitiveContentTests() -> Int {
     store.capture(source: "Privacy Fixture", bundleID: "test.privacy")
   }
   check(
-    store.sensitiveProtectionEnabled && store.personalDataAction == "mask",
+    store.sensitiveProtectionEnabled,
     "Automatic sensitive-content protection is enabled by default")
   for value in [apiKey, githubToken, password, privateKey, bearer] { copy(value) }
-  check(store.clips.isEmpty, "Detected credentials never enter clipboard history")
+  check(
+    store.clips.count == 5 && store.clips.allSatisfy { store.isMasked($0) },
+    "Detected credentials are saved and automatically masked")
   check(
     board.string(forType: .string) == bearer,
-    "Skipping sensitive history does not modify the active clipboard")
+    "Masking sensitive history does not modify the active clipboard")
   let reopenedEmpty = Store(
     folder: folder, defaults: defaults, pasteboard: board, monitoring: false)
-  check(reopenedEmpty.clips.isEmpty, "Skipped credentials are not written to SQLite")
+  check(
+    reopenedEmpty.clips.count == 5 && reopenedEmpty.clips.contains { $0.text == apiKey },
+    "Original credentials survive SQLite reload for later pasting")
+  let savedKey = store.clips.first { $0.text == apiKey }!
+  store.writeClipboard(savedKey)
+  check(
+    board.string(forType: .string) == apiKey && store.isMasked(savedKey),
+    "Pasting a masked API key restores its exact original value")
   copy(
     "Click here",
     html: "<a href=\"https://example.com/?api_key=" + String(repeating: "q", count: 24)
       + "\">Click here</a>")
-  check(store.clips.isEmpty, "Credentials hidden in rich-text HTML are also skipped")
+  check(
+    store.clips[0].text == "Click here" && store.clips[0].html != nil
+      && store.isMasked(store.clips[0]),
+    "Rich-text HTML is retained but its sensitive preview is masked")
   board.clearContents()
   board.setString("Plain preview", forType: .string)
   board.setData(Data(("{\\rtf1 " + password + "}").utf8), forType: .rtf)
   store.capture(source: "RTF Fixture", bundleID: "test.privacy")
-  check(store.clips.isEmpty, "Credentials in rich-text RTF payload are skipped before persistence")
+  check(
+    store.clips[0].text == "Plain preview" && store.clips[0].data != nil
+      && store.isMasked(store.clips[0]),
+    "Rich-text RTF is retained and detected credentials are masked")
   copy("Contact " + email)
   let saved = store.clips[0]
   check(
@@ -141,17 +156,17 @@ func runSensitiveContentTests() -> Int {
   check(
     store.isMasked(saved) && store.revealedSensitiveIDs.isEmpty,
     "Closing or hiding the panel resets all reveals")
-  store.personalDataAction = "skip"
+  defaults.set("skip", forKey: "personalDataAction")
   let before = store.clips.count
   copy("Other person other@example.net")
   check(
-    store.clips.count == before
+    store.clips.count == before + 1 && store.isMasked(store.clips[0])
       && board.string(forType: .string) == "Other person other@example.net",
-    "Do-not-save mode skips personal data without changing clipboard")
+    "Legacy skip preference no longer drops personal content")
   let strictReload = Store(folder: folder, defaults: defaults, pasteboard: board, monitoring: false)
   check(
-    strictReload.personalDataAction == "skip", "Personal data handling preference survives relaunch"
-  )
+    strictReload.clips.count == store.clips.count && strictReload.sensitiveProtectionEnabled,
+    "Mask-only policy and original history survive relaunch")
   store.sensitiveProtectionEnabled = false
   copy(password)
   check(
@@ -161,7 +176,6 @@ func runSensitiveContentTests() -> Int {
     folder: folder, defaults: defaults, pasteboard: board, monitoring: false)
   check(!disabledReload.sensitiveProtectionEnabled, "Protection opt-out survives relaunch")
   store.sensitiveProtectionEnabled = true
-  store.personalDataAction = "mask"
   let legacy = store.clips[0]
   check(
     store.isMasked(legacy)
@@ -182,8 +196,8 @@ func runSensitiveContentTests() -> Int {
   store.editedText = password
   store.saveEdit()
   check(
-    store.clips.first?.text == editable.text && store.editingPrivacyMessage != nil,
-    "Editor refuses newly entered credentials without changing the original item")
+    store.clips.first?.text == password && store.isMasked(store.clips[0]),
+    "Editor saves newly entered credentials and automatically masks the result")
   store.editing = nil
   store.editedText = ""
   store.edit(saved)
