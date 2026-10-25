@@ -1,0 +1,4 @@
+# Preserve exact bytes of the signed update feed.
+updates/appcast.xml -text
+# Preserve upstream license formatting without whitespace warnings.
+ThirdPartyNotices.txt -whitespace

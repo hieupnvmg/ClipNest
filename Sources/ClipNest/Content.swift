@@ -3,14 +3,16 @@ import ImageIO
 import SwiftUI
 
 struct Glass: NSViewRepresentable {
+  var opacity: Double = AppearancePreferences.defaultOpacity
   func makeNSView(context: Context) -> NSVisualEffectView {
     let v = NSVisualEffectView()
     v.material = .hudWindow
     v.blendingMode = .behindWindow
     v.state = .active
+    v.alphaValue = opacity
     return v
   }
-  func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+  func updateNSView(_ nsView: NSVisualEffectView, context: Context) { nsView.alphaValue = opacity }
 }
 struct SearchField: NSViewRepresentable {
   @Binding var text: String
@@ -232,7 +234,7 @@ struct Content: View {
       footer.padding(.horizontal, 22).frame(height: 26)
     }
     .frame(minWidth: 780, minHeight: 346)
-    .background(Glass())
+    .background(Glass(opacity: store.backgroundOpacity))
     .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.3), lineWidth: 1))
     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     .alert("New Pinboard", isPresented: $store.adding) {
@@ -379,108 +381,132 @@ struct Content: View {
     Button("Delete Item", role: .destructive) { store.remove(item) }
   }
   var preferences: some View {
-    VStack(alignment: .leading, spacing: 18) {
-      HStack {
-        Image(nsImage: NSImage(named: "AppIcon") ?? NSImage()).resizable().frame(
-          width: 32, height: 32)
-        Text("ClipNest").font(.title2.bold())
-        Spacer()
-        Text("0.3.1").foregroundStyle(.secondary)
-      }
-      Divider()
-      VStack(alignment: .leading, spacing: 8) {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 18) {
         HStack {
-          Text("Open Clipboard").font(.headline)
+          Image(nsImage: NSImage(named: "AppIcon") ?? NSImage()).resizable().frame(
+            width: 32, height: 32)
+          Text("ClipNest").font(.title2.bold())
           Spacer()
-          Text(store.shortcut.label).font(.system(.body, design: .monospaced)).padding(
-            .horizontal, 10
-          ).padding(.vertical, 5).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-          Button(store.recordingShortcut ? "Cancel" : "Change…") {
-            if let app = NSApp.delegate as? AppDelegate {
-              if store.recordingShortcut {
-                app.cancelShortcutRecording()
-              } else {
-                app.beginShortcutRecording()
-              }
-            }
+          Text("0.4.0").foregroundStyle(.secondary)
+        }
+        Divider()
+        VStack(alignment: .leading, spacing: 8) {
+          HStack {
+            Text("Appearance").font(.headline)
+            Spacer()
+            Text("\(Int(store.backgroundOpacity * 100))%").monospacedDigit().foregroundStyle(
+              .secondary)
           }
-          Button("Reset") { (NSApp.delegate as? AppDelegate)?.applyShortcut(.default) }.disabled(
-            store.shortcut == .default || store.recordingShortcut)
-        }
-        Text(
-          store.recordingShortcut
-            ? "Press your new shortcut now. Esc to cancel."
-            : "Default: ⇧⌘V. Changes are saved automatically."
-        ).font(.caption).foregroundStyle(.secondary)
-        if let message = store.shortcutError {
-          Text(message).font(.caption).foregroundStyle(.orange)
-        }
-      }
-      Divider()
-      HStack {
-        VStack(alignment: .leading, spacing: 5) {
-          Text("Clipboard Storage").font(.headline)
-          Text("\(store.storageDescription) · \(store.clips.count) items").font(
-            .system(.body, design: .monospaced)
-          ).monospacedDigit()
-          Text("SQLite database, journal and any migration backup on this Mac.").font(.caption)
+          Slider(value: $store.backgroundOpacity, in: 0.35...1, step: 0.05) {
+            Text("Background opacity")
+          }.labelsHidden().accessibilityLabel("Background opacity")
+          HStack {
+            Text("More transparent")
+            Spacer()
+            Text("More opaque")
+          }.font(.caption).foregroundStyle(.secondary)
+          Text("Changes apply immediately. Cards and text stay readable.").font(.caption)
             .foregroundStyle(.secondary)
         }
-        Spacer()
-        Button("Clear…", role: .destructive) { store.clearConfirmation = true }
-      }
-      Divider()
-      Text("Clipboard").font(.headline)
-      Picker("Keep unpinned items", selection: $store.retention) {
-        Text("Last 500").tag(500)
-        Text("Last 1,000").tag(1000)
-        Text("Last 5,000").tag(5000)
-        Text("Unlimited").tag(0)
-      }
-      Text("Pinned items are always kept. Retention applies when you save these settings.").font(
-        .caption
-      ).foregroundStyle(.secondary)
-      Text("Ignore applications").font(.headline)
-      TextField("Bundle IDs separated by commas", text: $store.excluded).textFieldStyle(
-        .roundedBorder)
-      Text(
-        "Example: com.apple.keychainaccess. Password and transient clipboard markers are also ignored."
-      ).font(.caption).foregroundStyle(.secondary)
-      Divider()
-      HStack {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("Direct paste").font(.headline)
+        Divider()
+        UpdateSettings()
+        Divider()
+        VStack(alignment: .leading, spacing: 8) {
+          HStack {
+            Text("Open Clipboard").font(.headline)
+            Spacer()
+            Text(store.shortcut.label).font(.system(.body, design: .monospaced)).padding(
+              .horizontal, 10
+            ).padding(.vertical, 5).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+            Button(store.recordingShortcut ? "Cancel" : "Change…") {
+              if let app = NSApp.delegate as? AppDelegate {
+                if store.recordingShortcut {
+                  app.cancelShortcutRecording()
+                } else {
+                  app.beginShortcutRecording()
+                }
+              }
+            }
+            Button("Reset") { (NSApp.delegate as? AppDelegate)?.applyShortcut(.default) }.disabled(
+              store.shortcut == .default || store.recordingShortcut)
+          }
           Text(
-            AXIsProcessTrusted()
-              ? "Accessibility permission enabled"
-              : "Enable Accessibility to paste into other apps."
+            store.recordingShortcut
+              ? "Press your new shortcut now. Esc to cancel."
+              : "Default: ⇧⌘V. Changes are saved automatically."
           ).font(.caption).foregroundStyle(.secondary)
+          if let message = store.shortcutError {
+            Text(message).font(.caption).foregroundStyle(.orange)
+          }
         }
-        Spacer()
-        Button("Enable…") {
-          let opts =
-            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-          _ = AXIsProcessTrustedWithOptions(opts)
+        Divider()
+        HStack {
+          VStack(alignment: .leading, spacing: 5) {
+            Text("Clipboard Storage").font(.headline)
+            Text("\(store.storageDescription) · \(store.clips.count) items").font(
+              .system(.body, design: .monospaced)
+            ).monospacedDigit()
+            Text("SQLite database, journal and any migration backup on this Mac.").font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Spacer()
+          Button("Clear…", role: .destructive) { store.clearConfirmation = true }
         }
+        Divider()
+        Text("Clipboard").font(.headline)
+        Picker("Keep unpinned items", selection: $store.retention) {
+          Text("Last 500").tag(500)
+          Text("Last 1,000").tag(1000)
+          Text("Last 5,000").tag(5000)
+          Text("Unlimited").tag(0)
+        }
+        Text("Pinned items are always kept. Retention applies when you save these settings.").font(
+          .caption
+        ).foregroundStyle(.secondary)
+        Text("Ignore applications").font(.headline)
+        TextField("Bundle IDs separated by commas", text: $store.excluded).textFieldStyle(
+          .roundedBorder)
+        Text(
+          "Example: com.apple.keychainaccess. Password and transient clipboard markers are also ignored."
+        ).font(.caption).foregroundStyle(.secondary)
+        Divider()
+        HStack {
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Direct paste").font(.headline)
+            Text(
+              store.accessibilityGranted
+                ? "Accessibility permission enabled"
+                : "Permission needed to paste directly into other apps."
+            ).font(.caption).foregroundStyle(.secondary)
+          }
+          Spacer()
+          Button(store.accessibilityGranted ? "Enabled" : "Open Settings…") {
+            store.requestAccessibilityPermission(openSettings: true)
+          }.disabled(store.accessibilityGranted)
+        }
+        Text(
+          "Clipboard history stays on this Mac, without app-level encryption. Only update checks and downloads contact GitHub; clipboard contents are never uploaded."
+        ).font(.caption).foregroundStyle(.secondary)
+        if let error = store.error {
+          Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+        }
+        HStack {
+          Text("Author: hieupn").font(.caption).foregroundStyle(.secondary)
+          Spacer()
+          Button("Done") {
+            (NSApp.delegate as? AppDelegate)?.cancelShortcutRecording()
+            store.trim()
+            store.save()
+            store.settings = false
+          }.keyboardShortcut(.defaultAction)
+        }
+      }.padding(26).frame(maxWidth: .infinity, alignment: .leading)
+    }.frame(width: 560, height: 680)
+      .onAppear {
+        store.refreshStorageUsage()
+        store.refreshAccessibilityStatus()
       }
-      Text(
-        "History stays on this Mac. No account, iCloud or network requests. History is stored locally without app-level encryption."
-      ).font(.caption).foregroundStyle(.secondary)
-      if let error = store.error {
-        Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
-      }
-      HStack {
-        Text("Author: hieupn").font(.caption).foregroundStyle(.secondary)
-        Spacer()
-        Button("Done") {
-          (NSApp.delegate as? AppDelegate)?.cancelShortcutRecording()
-          store.trim()
-          store.save()
-          store.settings = false
-        }.keyboardShortcut(.defaultAction)
-      }
-    }.padding(26).frame(width: 540)
-      .onAppear { store.refreshStorageUsage() }
       .onDisappear {
         if store.recordingShortcut { (NSApp.delegate as? AppDelegate)?.cancelShortcutRecording() }
       }

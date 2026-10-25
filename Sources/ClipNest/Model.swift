@@ -64,6 +64,14 @@ extension Color {
   }
 }
 final class Store: ObservableObject {
+  @Published var backgroundOpacity: Double {
+    didSet {
+      let value = AppearancePreferences.normalize(backgroundOpacity)
+      if value != backgroundOpacity { backgroundOpacity = value }
+      defaults.set(value, forKey: "backgroundOpacity")
+    }
+  }
+  @Published var accessibilityGranted = AXIsProcessTrusted()
   @Published var shortcut: KeyboardShortcut
   @Published var recordingShortcut = false
   @Published var shortcutError: String?
@@ -112,6 +120,7 @@ final class Store: ObservableObject {
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("ClipNest")
     self.asynchronousSaves = asynchronousSaves ?? monitoring
+    backgroundOpacity = AppearancePreferences.load(from: defaults)
     shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
     self.pasteboard = pasteboard
@@ -135,6 +144,7 @@ final class Store: ObservableObject {
     if monitoring {
       timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
         self?.capture()
+        if self?.settings == true { self?.refreshAccessibilityStatus() }
       }
       timer?.tolerance = 0.1
     }
@@ -253,6 +263,25 @@ final class Store: ObservableObject {
       }
     }
     didWrite(result, revision: saveRevision)
+  }
+  func refreshAccessibilityStatus() {
+    let granted = AXIsProcessTrusted()
+    if accessibilityGranted != granted { accessibilityGranted = granted }
+  }
+  func requestAccessibilityPermission(openSettings: Bool = false) {
+    guard !AXIsProcessTrusted() else {
+      refreshAccessibilityStatus()
+      return
+    }
+    let options =
+      [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+    accessibilityGranted = AXIsProcessTrustedWithOptions(options)
+    if openSettings,
+      let url = URL(
+        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+    {
+      NSWorkspace.shared.open(url)
+    }
   }
   func trim() {
     guard retention > 0 else { return }

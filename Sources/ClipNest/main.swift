@@ -77,7 +77,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(show), name: .init("local.clipnest.show"), object: nil)
     show()
+    UpdateService.shared.start()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+      self?.store.requestAccessibilityPermission()
+    }
   }
+  @objc func checkForUpdates() { UpdateService.shared.checkForUpdates() }
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool
   {
     show()
@@ -88,6 +93,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let menu = NSMenu()
       menu.addItem(withTitle: "Open ClipNest", action: #selector(show), keyEquivalent: "")
       menu.addItem(withTitle: "Preferences…", action: #selector(preferences), keyEquivalent: "")
+      menu.addItem(
+        withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
       menu.addItem(.separator())
       menu.addItem(withTitle: "Quit ClipNest", action: #selector(quit), keyEquivalent: "q")
       for item in menu.items { item.target = self }

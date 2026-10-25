@@ -5,7 +5,7 @@
 <h1 align="center">ClipNest</h1>
 <p align="center"><strong>Giữ lại những gì bạn copy. Tìm lại ngay khi cần.</strong></p>
 <p align="center">Một ứng dụng clipboard gọn gàng dành cho Mac, được tạo bởi <a href="https://github.com/hieupnvmg">hieupn</a>.</p>
-<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.3.1-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
+<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.0-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
 
 ![Giao diện ClipNest với dữ liệu minh họa](docs/preview.png)
 
@@ -18,17 +18,19 @@ Bạn vừa copy một đường link, rồi copy tiếp một đoạn văn và 
 - **Pinboard:** gom ghi chú, link và nội dung hay dùng vào từng nhóm riêng.
 - **Dán theo cách bạn muốn:** giữ định dạng hoặc dán văn bản thuần.
 - **Giao diện gọn:** các thẻ nội dung hiện ở cạnh dưới màn hình; nhấn `Esc` một lần để đóng.
+- **Cập nhật trong app:** tự kiểm tra bản mới hoặc nhấn Check for Updates trong Settings.
+- **Độ trong suốt theo ý bạn:** chỉnh nền bằng thanh kéo, áp dụng ngay.
 - **Phím tắt tùy chỉnh:** đổi tổ hợp mở clipboard trong Settings, mặc định `⌘⇧V`, có nút khôi phục.
 - **Chủ động quản lý:** tạm dừng ghi nhận, loại trừ ứng dụng, xem dung lượng và xóa lịch sử trong Settings.
 
 ### Cài đặt
 
-1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.3.1-Apple-Silicon.dmg).
+1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.0-Apple-Silicon.dmg).
 2. Mở file, kéo **ClipNest** vào **Applications**.
 3. Mở ClipNest và bắt đầu copy. App nằm trên menu bar.
-4. Để dán thẳng sang ứng dụng khác, cấp quyền tại **System Settings → Privacy & Security → Accessibility → ClipNest**. Nếu chưa cấp quyền, chọn một mục rồi nhấn `⌘V` để dán.
+4. App tự nhắc cấp quyền Accessibility nếu chưa có. Để dán thẳng sang ứng dụng khác, bật ClipNest tại **System Settings → Privacy & Security → Accessibility**. Nếu chưa cấp quyền, chọn một mục rồi nhấn `⌘V` để dán.
 
-Bản hiện tại: **0.3.1**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa có bản Mac Intel. App chưa được Apple notarize; nếu macOS chặn do chưa xác minh nhà phát triển, xem [hướng dẫn mở app của Apple](https://support.apple.com/en-au/102445).
+Bản hiện tại: **0.4.0**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa có bản Mac Intel. App chưa được Apple notarize; nếu macOS chặn do chưa xác minh nhà phát triển, xem [hướng dẫn mở app của Apple](https://support.apple.com/en-au/102445).
 
 ### Phím tắt
 
@@ -42,13 +44,19 @@ Bản hiện tại: **0.3.1**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa
 | `⌘F` | Quay lại ô tìm kiếm |
 | `Esc` | Đóng bảng clipboard |
 
+### Cập nhật và giao diện
+
+Từ bản 0.4.0, bạn có thể kiểm tra và cài bản mới ngay trong **Settings → Updates**. App tự kiểm tra hằng ngày khi tùy chọn này được bật; bạn xác nhận trước khi cài. Người đang dùng 0.3.1 trở về trước cần cài bản 0.4.0 thủ công một lần.
+
+Trong **Settings → Appearance**, kéo thanh độ trong suốt để chỉnh nền cho dễ nhìn. Lựa chọn được lưu tự động.
+
 ### Đổi phím tắt
 
 Mở **Settings → Open Clipboard → Change…**, sau đó nhấn tổ hợp bạn muốn dùng. Cần kết hợp Command, Option hoặc Control với một phím; nhấn Esc để hủy. Lựa chọn được lưu tự động. Nút **Reset** đưa về `⌘⇧V`. Nếu phím tắt đang bị ứng dụng khác chiếm, app sẽ báo để bạn chọn lại.
 
 ### Dữ liệu ở trên máy bạn
 
-ClipNest không cần tài khoản và không đồng bộ iCloud. Lịch sử được lưu cục bộ trên từng Mac, không được app gửi lên máy chủ. App bỏ qua các ứng dụng trong danh sách loại trừ và các nội dung clipboard có đánh dấu bí mật; bạn vẫn nên tạm dừng ghi nhận khi xử lý thông tin nhạy cảm. Lịch sử không có mã hóa riêng ở tầng ứng dụng.
+ClipNest không cần tài khoản và không đồng bộ iCloud. Lịch sử được lưu cục bộ trên từng Mac, không được app gửi lên máy chủ. App chỉ kết nối GitHub để kiểm tra và tải bản cập nhật; bạn có thể tắt tự kiểm tra trong Settings. App bỏ qua các ứng dụng trong danh sách loại trừ và các nội dung clipboard có đánh dấu bí mật; bạn vẫn nên tạm dừng ghi nhận khi xử lý thông tin nhạy cảm. Lịch sử không có mã hóa riêng ở tầng ứng dụng.
 
 Settings hiển thị dung lượng đang dùng và có nút **Clear**. Clear xóa cả các mục đã ghim sau khi bạn xác nhận. File được lưu dưới dạng tham chiếu; nếu bạn di chuyển hoặc xóa file gốc thì tham chiếu có thể không còn dùng được.
 

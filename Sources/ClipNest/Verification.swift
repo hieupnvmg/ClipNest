@@ -381,6 +381,52 @@ func runSelfTests() {
     registrar.replace(with: standardShortcut) && registrar.active == standardShortcut,
     "Reset restores the default shortcut")
   defaults.removeObject(forKey: "globalShortcut")
+  check(
+    AppearancePreferences.load(from: defaults) == AppearancePreferences.defaultOpacity,
+    "Missing appearance preference uses readable default")
+  check(
+    AppearancePreferences.normalize(0) == 0.35 && AppearancePreferences.normalize(2) == 1,
+    "Background opacity is clamped to supported range")
+  check(
+    AppearancePreferences.normalize(.nan) == AppearancePreferences.defaultOpacity
+      && AppearancePreferences.normalize(.infinity) == AppearancePreferences.defaultOpacity,
+    "Invalid opacity values fall back safely")
+  shortcutStore.backgroundOpacity = 0.55
+  let appearanceRelaunch = Store(
+    folder: folder.appendingPathComponent("appearance-relaunch"), defaults: defaults,
+    pasteboard: pb, monitoring: false)
+  check(
+    appearanceRelaunch.backgroundOpacity == 0.55,
+    "Opacity changes are saved immediately and survive relaunch")
+  shortcutStore.backgroundOpacity = 0.1
+  check(
+    shortcutStore.backgroundOpacity == 0.35 && defaults.double(forKey: "backgroundOpacity") == 0.35,
+    "Opacity cannot make the panel unreadably transparent")
+  check(
+    shortcutStore.accessibilityGranted == AXIsProcessTrusted(),
+    "Accessibility status is read without prompting during initialization")
+  let updateInfo = Bundle.main.infoDictionary ?? [:]
+  let feed = (updateInfo["SUFeedURL"] as? String).flatMap(URL.init(string:))
+  check(
+    feed?.scheme == "https" && feed?.host == "raw.githubusercontent.com"
+      && feed?.path == "/hieupnvmg/ClipNest/main/updates/appcast.xml",
+    "Update feed uses the expected HTTPS repository")
+  let publicKey = (updateInfo["SUPublicEDKey"] as? String).flatMap { Data(base64Encoded: $0) }
+  check(publicKey?.count == 32, "Updater embeds a valid Ed25519 public key")
+  check(
+    updateInfo["SUVerifyUpdateBeforeExtraction"] as? Bool == true
+      && updateInfo["SURequireSignedFeed"] as? Bool == true,
+    "OTA requires signed feed and verified archives before extraction")
+  check(
+    updateInfo["SUEnableSystemProfiling"] as? Bool == false
+      && updateInfo["SUAutomaticallyUpdate"] as? Bool == false,
+    "Updater does not enable profiling or silent installs by default")
+  let framework = Bundle.main.bundleURL.appendingPathComponent(
+    "Contents/Frameworks/Sparkle.framework")
+  check(
+    FileManager.default.fileExists(atPath: framework.path),
+    "Sparkle framework is bundled with the app")
+  defaults.removeObject(forKey: "backgroundOpacity")
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
 @MainActor func renderPreview(to path: String, settings: Bool = false) {
