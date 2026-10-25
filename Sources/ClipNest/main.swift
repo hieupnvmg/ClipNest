@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   var panel: NSPanel!
   var status: NSStatusItem!
   var previous: NSRunningApplication?
-  var hotKey: EventHotKeyRef?
+  let shortcuts = ShortcutRegistrar()
   var keyMonitor: Any?
   var clickMonitor: Any?
   var workspaceMonitor: NSObjectProtocol?
@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     status.button?.target = self
     status.button?.action = #selector(statusClicked)
     status.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-    status.button?.toolTip = "ClipNest · ⇧⌘V"
+    status.button?.toolTip = "ClipNest · \(store.shortcut.label)"
     var type = EventTypeSpec(
       eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
     InstallEventHandler(
@@ -53,12 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         (NSApp.delegate as? AppDelegate)?.toggle()
         return noErr
       }, 1, &type, nil, nil)
-    let id = EventHotKeyID(signature: 0x434C_4950, id: 1)
-    if RegisterEventHotKey(
-      UInt32(kVK_ANSI_V), UInt32(cmdKey | shiftKey), id, GetApplicationEventTarget(), 0, &hotKey)
-      != noErr
-    {
-      store.toast = "⇧⌘V is in use by another app. Open ClipNest from the menu bar."
+    if !shortcuts.replace(with: store.shortcut) {
+      store.shortcutError = "This shortcut is unavailable. Choose another combination."
+      store.toast = "\(store.shortcut.label) is unavailable. Open ClipNest from the menu bar."
     }
     keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
       guard let self else { return event }
@@ -124,7 +121,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panel.makeKeyAndOrderFront(nil)
     focusSearch()
   }
-  func hide() { panel.orderOut(nil) }
+  func hide() {
+    if store.recordingShortcut { cancelShortcutRecording() }
+    panel.orderOut(nil)
+  }
+  func beginShortcutRecording() {
+    shortcuts.suspend()
+    store.shortcutError = nil
+    store.recordingShortcut = true
+  }
+  func cancelShortcutRecording() {
+    store.recordingShortcut = false
+    if !shortcuts.replace(with: store.shortcut) {
+      store.shortcutError = "Shortcut unavailable. Choose another combination."
+    }
+  }
+  func applyShortcut(_ shortcut: KeyboardShortcut) {
+    guard shortcuts.replace(with: shortcut) else {
+      store.shortcutError = "That shortcut is in use or unavailable. Try another combination."
+      return
+    }
+    store.shortcut = shortcut
+    shortcut.save(to: store.defaults)
+    store.recordingShortcut = false
+    store.shortcutError = nil
+    store.toast = nil
+    status.button?.toolTip = "ClipNest · \(shortcut.label)"
+  }
   func focusCards() { panel.makeFirstResponder(panel.contentView) }
   func focusSearch() {
     store.searchVisible = true
@@ -146,7 +169,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
   func handleKey(_ event: NSEvent) -> NSEvent? {
-    guard panel.isVisible, panel.attachedSheet == nil else { return event }
+    guard panel.isVisible else { return event }
+    if store.recordingShortcut {
+      if event.keyCode == 53 || event.keyCode == 48 {
+        cancelShortcutRecording()
+        return nil
+      }
+      if let shortcut = KeyboardShortcut(event: event) {
+        applyShortcut(shortcut)
+      } else {
+        store.shortcutError =
+          "Use Command, Option or Control together with a letter, number, Space or function key."
+      }
+      return nil
+    }
+    guard panel.attachedSheet == nil else { return event }
     let cmd = event.modifierFlags.contains(.command)
     if event.keyCode == 53 {
       hide()
@@ -213,7 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationWillTerminate(_ notification: Notification) {
     guard panel != nil else { return }
     store.flushPendingSave()
-    if let hotKey { UnregisterEventHotKey(hotKey) }
+    shortcuts.suspend()
     if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
     if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
     if let workspaceMonitor {

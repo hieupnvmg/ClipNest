@@ -1,5 +1,6 @@
 import AppKit
 import CSQLite
+import Carbon
 import SwiftUI
 
 func runSelfTests() {
@@ -308,6 +309,78 @@ func runSelfTests() {
   check(
     (try! incremental.load()).isEmpty && incremental.storageBytes <= beforeClearSize,
     "SQLite Clear compacts database and journal files")
+  let standardShortcut = KeyboardShortcut.default
+  check(
+    standardShortcut.keyCode == UInt32(kVK_ANSI_V)
+      && standardShortcut.modifiers == UInt32(cmdKey | shiftKey),
+    "Default shortcut remains Command-Shift-V")
+  check(
+    KeyboardShortcut.load(from: defaults) == standardShortcut,
+    "Missing shortcut preference uses the default")
+  let customShortcut = KeyboardShortcut(
+    keyCode: UInt32(kVK_ANSI_B), modifiers: UInt32(cmdKey | optionKey))
+  customShortcut.save(to: defaults)
+  check(
+    KeyboardShortcut.load(from: defaults) == customShortcut,
+    "Custom shortcut survives preference reload")
+  let shortcutStore = Store(
+    folder: folder.appendingPathComponent("shortcut-relaunch"), defaults: defaults, pasteboard: pb,
+    monitoring: false)
+  check(shortcutStore.shortcut == customShortcut, "Store loads the saved shortcut on relaunch")
+  check(
+    !KeyboardShortcut(keyCode: 9, modifiers: 0).isValid
+      && !KeyboardShortcut(keyCode: 9, modifiers: UInt32(shiftKey)).isValid,
+    "Plain keys and Shift-only shortcuts are rejected")
+  check(
+    !KeyboardShortcut(keyCode: 53, modifiers: UInt32(cmdKey)).isValid,
+    "Escape is reserved for cancel and close")
+  check(
+    !KeyboardShortcut(keyCode: 9, modifiers: UInt32(cmdKey) | 1).isValid,
+    "Unsupported modifier bits are rejected")
+  defaults.set(Data("invalid preference".utf8), forKey: "globalShortcut")
+  check(
+    KeyboardShortcut.load(from: defaults) == standardShortcut,
+    "Malformed shortcut preference safely falls back to default")
+  let keyEvent = NSEvent.keyEvent(
+    with: .keyDown, location: .zero, modifierFlags: [.command, .option, .capsLock], timestamp: 0,
+    windowNumber: 0, context: nil, characters: "b", charactersIgnoringModifiers: "b",
+    isARepeat: false, keyCode: UInt16(kVK_ANSI_B))!
+  check(
+    KeyboardShortcut(event: keyEvent) == customShortcut && customShortcut.label == "⌥⌘B",
+    "Recorder normalizes modifier flags and formats shortcut label")
+  var registrations = 0
+  var releases = 0
+  var rejectRegistration = false
+  let registrar = ShortcutRegistrar(
+    register: { _, handle in
+      registrations += 1
+      if rejectRegistration { return OSStatus(-9878) }
+      handle = EventHotKeyRef(bitPattern: registrations)
+      return noErr
+    }, unregister: { _ in releases += 1 })
+  check(registrar.replace(with: standardShortcut), "Shortcut registrar accepts initial shortcut")
+  let initialRegistrations = registrations
+  check(
+    registrar.replace(with: standardShortcut) && registrations == initialRegistrations,
+    "Unchanged shortcut does not register twice")
+  rejectRegistration = true
+  check(
+    !registrar.replace(with: customShortcut) && registrar.active == standardShortcut
+      && releases == 0, "Conflicting shortcut leaves previous registration intact")
+  rejectRegistration = false
+  check(
+    registrar.replace(with: customShortcut) && registrar.active == customShortcut && releases == 1,
+    "Successful shortcut change releases the old registration")
+  registrar.suspend()
+  registrar.suspend()
+  check(releases == 2, "Recording suspension releases a shortcut only once")
+  check(
+    registrar.replace(with: customShortcut) && registrar.active == customShortcut,
+    "Canceling recording can restore the previous shortcut")
+  check(
+    registrar.replace(with: standardShortcut) && registrar.active == standardShortcut,
+    "Reset restores the default shortcut")
+  defaults.removeObject(forKey: "globalShortcut")
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
 @MainActor func renderPreview(to path: String, settings: Bool = false) {
@@ -371,7 +444,7 @@ func runSelfTests() {
   ]
   store.selected = store.clips.first?.id
   let width: CGFloat = settings ? 560 : 1440
-  let height: CGFloat = settings ? 650 : 346
+  let height: CGFloat = settings ? 740 : 346
   let content =
     settings ? AnyView(Content(store: store).preferences) : AnyView(Content(store: store))
   let root = content.frame(width: width, height: height).background(

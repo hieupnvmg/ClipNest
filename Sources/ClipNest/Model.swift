@@ -64,6 +64,9 @@ extension Color {
   }
 }
 final class Store: ObservableObject {
+  @Published var shortcut: KeyboardShortcut
+  @Published var recordingShortcut = false
+  @Published var shortcutError: String?
   @Published var newBoard = ""
   @Published var adding = false
   @Published var settings = false
@@ -109,6 +112,7 @@ final class Store: ObservableObject {
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("ClipNest")
     self.asynchronousSaves = asynchronousSaves ?? monitoring
+    shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
     self.pasteboard = pasteboard
     count = pasteboard.changeCount

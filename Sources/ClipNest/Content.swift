@@ -385,7 +385,36 @@ struct Content: View {
           width: 32, height: 32)
         Text("ClipNest").font(.title2.bold())
         Spacer()
-        Text("0.3.0").foregroundStyle(.secondary)
+        Text("0.3.1").foregroundStyle(.secondary)
+      }
+      Divider()
+      VStack(alignment: .leading, spacing: 8) {
+        HStack {
+          Text("Open Clipboard").font(.headline)
+          Spacer()
+          Text(store.shortcut.label).font(.system(.body, design: .monospaced)).padding(
+            .horizontal, 10
+          ).padding(.vertical, 5).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+          Button(store.recordingShortcut ? "Cancel" : "Change…") {
+            if let app = NSApp.delegate as? AppDelegate {
+              if store.recordingShortcut {
+                app.cancelShortcutRecording()
+              } else {
+                app.beginShortcutRecording()
+              }
+            }
+          }
+          Button("Reset") { (NSApp.delegate as? AppDelegate)?.applyShortcut(.default) }.disabled(
+            store.shortcut == .default || store.recordingShortcut)
+        }
+        Text(
+          store.recordingShortcut
+            ? "Press your new shortcut now. Esc to cancel."
+            : "Default: ⇧⌘V. Changes are saved automatically."
+        ).font(.caption).foregroundStyle(.secondary)
+        if let message = store.shortcutError {
+          Text(message).font(.caption).foregroundStyle(.orange)
+        }
       }
       Divider()
       HStack {
@@ -444,6 +473,7 @@ struct Content: View {
         Text("Author: hieupn").font(.caption).foregroundStyle(.secondary)
         Spacer()
         Button("Done") {
+          (NSApp.delegate as? AppDelegate)?.cancelShortcutRecording()
           store.trim()
           store.save()
           store.settings = false
@@ -451,6 +481,9 @@ struct Content: View {
       }
     }.padding(26).frame(width: 540)
       .onAppear { store.refreshStorageUsage() }
+      .onDisappear {
+        if store.recordingShortcut { (NSApp.delegate as? AppDelegate)?.cancelShortcutRecording() }
+      }
       .alert("Clear all clipboard history?", isPresented: $store.clearConfirmation) {
         Button("Cancel", role: .cancel) {}
         Button("Clear All", role: .destructive) { store.clearHistory() }
