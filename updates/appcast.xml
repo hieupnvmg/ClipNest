@@ -6,6 +6,27 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.0</title>
+            <pubDate>Sun, 25 Oct 2026 12:49:53 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# ClipNest 0.5.0
+
+Thêm **Tự bảo vệ nội dung nhạy cảm**, bật mặc định trong Settings:
+
+- Tự bỏ qua mật khẩu có ngữ cảnh, token, API key và private key nhận diện được.
+- Che email, số điện thoại, số thẻ; có thể chọn Không lưu thay cho che.
+- Hiện tạm 15 giây rồi tự che lại; clipboard gốc vẫn giữ nguyên để dán.
+- Mục đang che không được kéo thả hoặc mở chỉnh sửa trước khi hiện tạm.
+
+Chế độ che vẫn lưu dữ liệu gốc trên máy. Nhận diện có thể nhầm hoặc bỏ sót; chưa quét chữ trong ảnh. Nội dung cũ chỉ che khi nhận diện, không tự xóa.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.0/ClipNest-0.5.0-Apple-Silicon.dmg" length="2633772" type="application/octet-stream" sparkle:edSignature="wsmTQ7SJLMhT5v9nc5wOgVGHBHwRTUllFTcwFKdOna6JQfQwmRi5OjXgZL+OVqcyGB2fZe5FAcprN8gjBys5AQ=="/>
+        </item>
+        <item>
             <title>0.4.1</title>
             <pubDate>Sun, 25 Oct 2026 12:24:10 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -42,6 +63,6 @@ Lịch sử clipboard được giữ nguyên khi cập nhật. Bản 0.3.1 trở
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 3tPYrwBCLq3u2Iu7f4Sat27ENXAb3V6SDKOVazFdQYFu5TJa6IgiCV8Vnk2taEraonRtsNChPqJ3RAscNwx9Ag==
-length: 2919
+edSignature: Vh3nynCRKIiD4cGetNfUXzSxhjUAWvPYgWO4Ed+W1iPUDicV/XFXiQ7r8xlTl8F4VD+CU7TcaROItW+st+42BQ==
+length: 4446
 -->
