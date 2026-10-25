@@ -509,9 +509,10 @@ func runSelfTests() {
     "Controller also navigates after removing text-field focus")
   otherPanel.close()
   testPanel.close()
+  checks += runSensitiveContentTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
-@MainActor func renderPreview(to path: String, settings: Bool = false) {
+@MainActor func renderPreview(to path: String, settings: Bool = false, privacy: Bool = false) {
   let suite = "ClipNest.preview.\(UUID().uuidString)"
   let defaults = UserDefaults(suiteName: suite)!
   defer { defaults.removePersistentDomain(forName: suite) }
@@ -570,11 +571,26 @@ func runSelfTests() {
         "Hi Alex,\n\nThanks for sharing the latest designs. The new direction looks great.\n\nLet's catch up tomorrow.",
       board: "Email Templates", title: "Quick follow-up", bundleID: "com.apple.Notes"),
   ]
+  if privacy {
+    store.clips.insert(
+      contentsOf: [
+        Clip(
+          source: "Contacts", kind: "Text", text: "Email: demo@example.com\nPhone: +84 912 345 678",
+          title: "Thông tin liên hệ", bundleID: "com.apple.AddressBook"),
+        Clip(
+          source: "Notes", kind: "Text", text: "4111 1111 1111 1111", title: "Thẻ dùng thử",
+          bundleID: "com.apple.Notes"),
+        Clip(
+          source: "Terminal", kind: "Text",
+          text: ["password", "unit-test-placeholder"].joined(separator: "="),
+          title: "Mục cũ đã bảo vệ", bundleID: "com.apple.Terminal"),
+      ], at: 0)
+  }
   store.selected = store.clips.first?.id
   let width: CGFloat = settings ? 560 : 1440
   let height: CGFloat = settings ? 740 : 346
   let content =
-    settings ? AnyView(Content(store: store).preferences) : AnyView(Content(store: store))
+    settings ? AnyView(ClipboardContent(store: store).preferences) : AnyView(ClipboardContent(store: store))
   let root = content.frame(width: width, height: height).background(
     Color(nsColor: .windowBackgroundColor)
   ).environment(\.colorScheme, .light)

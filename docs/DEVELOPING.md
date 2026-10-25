@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 92 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 138 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -36,3 +36,15 @@ Tự kiểm tra bật mặc định, cài đặt cần người dùng xác nhậ
 ## Giao diện
 
 Opacity chỉ áp dụng cho nền NSVisualEffectView, không làm mờ chữ/thẻ. Giá trị 35–100%, mặc định 90%, lưu trong UserDefaults. Settings có thể cuộn trên màn hình nhỏ.
+
+## Tự bảo vệ nội dung nhạy cảm
+
+Quy tắc local nằm trong SensitiveContent.swift. Không gọi dịch vụ xác minh token, không gửi clipboard ra mạng, không ghi nội dung phát hiện được vào log. Default bật: secret nhận diện được bị chặn trước khi thêm lịch sử/SQLite; dữ liệu cá nhân được giữ nguyên để dán nhưng che trên giao diện, có lựa chọn không lưu.
+
+Kiểm tra cả plain text, nhãn, HTML và RTF. Ảnh không được OCR. Số thẻ cần qua Luhn; regex email/phone có giới hạn, không bảo đảm phát hiện mọi dữ liệu nhạy cảm. Nội dung cũ/migration được che khi trình bày, không âm thầm xóa dữ liệu cũ.
+
+Presentation được cache có giới hạn, bản dùng để render loại bỏ payload gốc khi che; cả nhãn accessibility dùng bản này. Mục đang che không gắn onDrag và không được mở editor trước khi reveal. Copy/paste là thao tác chủ động và dùng nguyên bản. Reveal hết hạn sau 15 giây hoặc khi bảng ẩn; editor đang hiển thị nội dung được bảo vệ cũng đóng và xóa draft khi hết hạn.
+
+Các mẫu credential trong test đều là dữ liệu giả dựng tại runtime. Kiểm tra bao gồm không ghi secret vào SQLite, không thay clipboard, masking Unicode, Luhn, rich text, cache, preference, thời hạn reveal và editor.
+
+Tham khảo định dạng: [GitHub secret-scanning patterns](https://docs.github.com/en/code-security/reference/secret-security/supported-secret-scanning-patterns), [Stripe authentication](https://docs.stripe.com/api/authentication).

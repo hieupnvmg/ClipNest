@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panel.isOpaque = false
     panel.hasShadow = true
     panel.hidesOnDeactivate = false
-    panel.contentView = NSHostingView(rootView: Content(store: store))
+    panel.contentView = NSHostingView(rootView: ClipboardContent(store: store))
     status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     status.button?.image = NSImage(
       systemSymbolName: "square.on.square", accessibilityDescription: "ClipNest")
@@ -72,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.processIdentifier != ProcessInfo.processInfo.processIdentifier
       else { return }
       self.previous = app
+      self.store.hideRevealedSensitiveItems()
       if self.panel.isVisible && self.panel.attachedSheet == nil { self.hide() }
     }
     DistributedNotificationCenter.default().addObserver(
@@ -129,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     focusSearch()
   }
   func hide() {
+    store.hideRevealedSensitiveItems()
     if store.recordingShortcut { cancelShortcutRecording() }
     panel.orderOut(nil)
   }
@@ -266,7 +268,8 @@ if let i = CommandLine.arguments.firstIndex(of: "--render-preview"),
 {
   DispatchQueue.main.async {
     renderPreview(
-      to: CommandLine.arguments[i + 1], settings: CommandLine.arguments.contains("--settings"))
+      to: CommandLine.arguments[i + 1], settings: CommandLine.arguments.contains("--settings"),
+      privacy: CommandLine.arguments.contains("--privacy-preview"))
     exit(0)
   }
   app.run()

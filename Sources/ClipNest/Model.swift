@@ -71,6 +71,27 @@ final class Store: ObservableObject {
       defaults.set(value, forKey: "backgroundOpacity")
     }
   }
+  @Published var sensitiveProtectionEnabled: Bool {
+    didSet {
+      defaults.set(sensitiveProtectionEnabled, forKey: "sensitiveProtectionEnabled")
+      hideRevealedSensitiveItems()
+    }
+  }
+  @Published var personalDataAction: String {
+    didSet {
+      defaults.set(personalDataAction, forKey: "personalDataAction")
+      hideRevealedSensitiveItems()
+    }
+  }
+  @Published private(set) var revealedSensitiveIDs: Set<UUID> = []
+  @Published var editingPrivacyMessage: String?
+  private var revealTasks: [UUID: DispatchWorkItem] = [:]
+  private let protectedPresentations: NSCache<NSUUID, ProtectedPresentation> = {
+    let cache = NSCache<NSUUID, ProtectedPresentation>()
+    cache.totalCostLimit = 16 * 1024 * 1024
+    cache.countLimit = 128
+    return cache
+  }()
   @Published var accessibilityGranted = AXIsProcessTrusted()
   @Published var shortcut: KeyboardShortcut
   @Published var recordingShortcut = false
@@ -120,6 +141,9 @@ final class Store: ObservableObject {
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("ClipNest")
     self.asynchronousSaves = asynchronousSaves ?? monitoring
+    sensitiveProtectionEnabled =
+      defaults.object(forKey: "sensitiveProtectionEnabled") as? Bool ?? true
+    personalDataAction = defaults.string(forKey: "personalDataAction") == "skip" ? "skip" : "mask"
     backgroundOpacity = AppearancePreferences.load(from: defaults)
     shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
@@ -211,6 +235,8 @@ final class Store: ObservableObject {
     switch result {
     case .success(let bytes):
       pendingSnapshot = nil
+      hideRevealedSensitiveItems()
+      protectedPresentations.removeAllObjects()
       clips = []
       selected = nil
       query = ""
@@ -283,6 +309,50 @@ final class Store: ObservableObject {
       NSWorkspace.shared.open(url)
     }
   }
+  func protection(for item: Clip) -> ProtectedPresentation {
+    let key = item.id as NSUUID
+    if let cached = protectedPresentations.object(forKey: key), cached.original == item {
+      return cached
+    }
+    let result = ProtectedPresentation(item)
+    protectedPresentations.setObject(result, forKey: key, cost: result.cost)
+    return result
+  }
+  func isMasked(_ item: Clip) -> Bool {
+    sensitiveProtectionEnabled && !revealedSensitiveIDs.contains(item.id)
+      && protection(for: item).isSensitive
+  }
+  func displayClip(_ item: Clip) -> Clip { isMasked(item) ? protection(for: item).clip : item }
+  func revealSensitiveItem(_ item: Clip, duration: TimeInterval = 15) {
+    guard sensitiveProtectionEnabled, protection(for: item).isSensitive else { return }
+    revealTasks[item.id]?.cancel()
+    revealedSensitiveIDs.insert(item.id)
+    let id = item.id
+    let task = DispatchWorkItem { [weak self] in self?.hideRevealedSensitiveItem(id) }
+    revealTasks[id] = task
+    DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: task)
+  }
+  func hideRevealedSensitiveItem(_ id: UUID) {
+    revealTasks.removeValue(forKey: id)?.cancel()
+    if revealedSensitiveIDs.contains(id), editing?.id == id {
+      editing = nil
+      editedText = ""
+      editedTitle = ""
+    }
+    revealedSensitiveIDs.remove(id)
+  }
+  func hideRevealedSensitiveItems() {
+    let ids = revealedSensitiveIDs
+    for id in ids { hideRevealedSensitiveItem(id) }
+  }
+  private func shouldSkipSensitive(_ item: Clip) -> Bool {
+    guard sensitiveProtectionEnabled else { return false }
+    let assessment = ProtectedPresentation(item)
+    return assessment.containsSecret || (personalDataAction == "skip" && assessment.isSensitive)
+  }
+  private func skippedSensitiveItem() {
+    toast = "Đã bỏ qua một nội dung nhạy cảm; clipboard gốc vẫn giữ nguyên."
+  }
   func trim() {
     guard retention > 0 else { return }
     var unpinned = 0
@@ -320,12 +390,21 @@ final class Store: ObservableObject {
     } else if let image = imageContent(from: p) {
       clip = Clip(source: source, kind: "Image", text: image.dimensions, data: image.data)
     } else if let str = p.string(forType: .string), !str.isEmpty, str.utf8.count < 5_000_000 {
+      if sensitiveProtectionEnabled && SensitiveContent.containsSecret(str) {
+        skippedSensitiveItem()
+        return
+      }
       let rtf = p.data(forType: .rtf).flatMap { $0.count <= 5_000_000 ? $0 : nil }
       let html = p.data(forType: .html).flatMap { $0.count <= 5_000_000 ? $0 : nil }
       clip = Clip(source: source, kind: Clip.textKind(str), text: str, data: rtf, html: html)
     }
     guard var item = clip else { return }
     item.bundleID = bid
+    if shouldSkipSensitive(item) {
+      skippedSensitiveItem()
+      return
+    }
+    if toast == "Đã bỏ qua một nội dung nhạy cảm; clipboard gốc vẫn giữ nguyên." { toast = nil }
     if let old = clips.first(where: {
       $0.kind == item.kind && $0.text == item.text && $0.data == item.data && $0.html == item.html
     }) {
@@ -388,6 +467,8 @@ final class Store: ObservableObject {
     }
   }
   func remove(_ item: Clip) {
+    hideRevealedSensitiveItem(item.id)
+    protectedPresentations.removeObject(forKey: item.id as NSUUID)
     clips.removeAll { $0.id == item.id }
     selected = filtered.first?.id
     save()
@@ -427,21 +508,35 @@ final class Store: ObservableObject {
     save()
   }
   func edit(_ item: Clip) {
+    guard !isMasked(item) else {
+      toast = "Hiện tạm nội dung trước khi chỉnh sửa."
+      return
+    }
+    editingPrivacyMessage = nil
     editing = item
     editedText = item.text
     editedTitle = item.title
   }
   func saveEdit() {
-    if let item = editing, let i = clips.firstIndex(where: { $0.id == item.id }) {
-      clips[i].title = editedTitle
-      if item.kind == "Text" || item.kind == "Link" || item.kind == "Color" {
-        clips[i].text = editedText
-        clips[i].kind = Clip.textKind(editedText)
-        clips[i].data = nil
-        clips[i].html = nil
-      }
-      save()
+    guard let item = editing, let i = clips.firstIndex(where: { $0.id == item.id }) else { return }
+    var updated = clips[i]
+    updated.title = editedTitle
+    if ["Text", "Link", "Color"].contains(item.kind) {
+      updated.text = editedText
+      updated.kind = Clip.textKind(editedText)
+      updated.data = nil
+      updated.html = nil
     }
+    guard !shouldSkipSensitive(updated) else {
+      editingPrivacyMessage =
+        "Không lưu: nội dung này được nhận diện là nhạy cảm. Mục gốc chưa thay đổi."
+      return
+    }
+    clips[i] = updated
+    save()
     editing = nil
+    editedText = ""
+    editedTitle = ""
+    editingPrivacyMessage = nil
   }
 }

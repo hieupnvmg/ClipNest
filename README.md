@@ -5,7 +5,7 @@
 <h1 align="center">ClipNest</h1>
 <p align="center"><strong>Giữ lại những gì bạn copy. Tìm lại ngay khi cần.</strong></p>
 <p align="center">Một ứng dụng clipboard gọn gàng dành cho Mac, được tạo bởi <a href="https://github.com/hieupnvmg">hieupn</a>.</p>
-<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.1-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
+<p align="center"><a href="https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.5.0-Apple-Silicon.dmg"><strong>↓ Tải ClipNest cho Mac</strong></a> · Apple Silicon · macOS 13 trở lên</p>
 
 ![Giao diện ClipNest với dữ liệu minh họa](docs/preview.png)
 
@@ -22,15 +22,16 @@ Bạn vừa copy một đường link, rồi copy tiếp một đoạn văn và 
 - **Độ trong suốt theo ý bạn:** chỉnh nền bằng thanh kéo, áp dụng ngay.
 - **Phím tắt tùy chỉnh:** đổi tổ hợp mở clipboard trong Settings, mặc định `⌘⇧V`, có nút khôi phục.
 - **Chủ động quản lý:** tạm dừng ghi nhận, loại trừ ứng dụng, xem dung lượng và xóa lịch sử trong Settings.
+- **Tự bảo vệ nội dung nhạy cảm:** bỏ qua mật khẩu/khóa nhận diện được, che thông tin cá nhân và chỉ hiện tạm khi bạn yêu cầu.
 
 ### Cài đặt
 
-1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.4.1-Apple-Silicon.dmg).
+1. [Tải file DMG](https://github.com/hieupnvmg/ClipNest/releases/latest/download/ClipNest-0.5.0-Apple-Silicon.dmg).
 2. Mở file, kéo **ClipNest** vào **Applications**.
 3. Mở ClipNest và bắt đầu copy. App nằm trên menu bar.
 4. App tự nhắc cấp quyền Accessibility nếu chưa có. Để dán thẳng sang ứng dụng khác, bật ClipNest tại **System Settings → Privacy & Security → Accessibility**. Nếu chưa cấp quyền, chọn một mục rồi nhấn `⌘V` để dán.
 
-Bản hiện tại: **0.4.1**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa có bản Mac Intel. App chưa được Apple notarize; nếu macOS chặn do chưa xác minh nhà phát triển, xem [hướng dẫn mở app của Apple](https://support.apple.com/en-au/102445).
+Bản hiện tại: **0.5.0**, dành cho **Mac M1 trở lên, macOS 13+**. Chưa có bản Mac Intel. App chưa được Apple notarize; nếu macOS chặn do chưa xác minh nhà phát triển, xem [hướng dẫn mở app của Apple](https://support.apple.com/en-au/102445).
 
 ### Phím tắt
 
@@ -55,6 +56,12 @@ Trong **Settings → Appearance**, kéo thanh độ trong suốt để chỉnh n
 Mở **Settings → Open Clipboard → Change…**, sau đó nhấn tổ hợp bạn muốn dùng. Cần kết hợp Command, Option hoặc Control với một phím; nhấn Esc để hủy. Lựa chọn được lưu tự động. Nút **Reset** đưa về `⌘⇧V`. Nếu phím tắt đang bị ứng dụng khác chiếm, app sẽ báo để bạn chọn lại.
 
 ### Dữ liệu ở trên máy bạn
+
+**Tự bảo vệ nội dung nhạy cảm** bật mặc định trong Settings. App dùng quy tắc trên máy để bỏ qua mật khẩu có ngữ cảnh, token/API key, private key và thông tin xác thực nhận diện được. Email, số điện thoại và số thẻ hợp lệ được che trên thẻ; bạn có thể chọn **Không lưu** những thông tin này thay vì che.
+
+Nút **Hiện 15 giây** chỉ mở tạm nội dung, sau đó tự che lại; đóng bảng cũng che lại ngay. Bạn vẫn dán được bản gốc. Kéo thả và chỉnh sửa mục đang che yêu cầu hiện tạm trước.
+
+Chế độ che vẫn giữ dữ liệu gốc trong máy để dán lại, không phải mã hóa. Nội dung cũ chỉ được che khi nhận diện, không tự xóa khỏi lịch sử. Nhận diện có thể nhầm hoặc bỏ sót, đặc biệt là mật khẩu đứng riêng không có dấu hiệu; bản này chưa quét chữ trong ảnh.
 
 ClipNest không cần tài khoản và không đồng bộ iCloud. Lịch sử được lưu cục bộ trên từng Mac, không được app gửi lên máy chủ. App chỉ kết nối GitHub để kiểm tra và tải bản cập nhật; bạn có thể tắt tự kiểm tra trong Settings. App bỏ qua các ứng dụng trong danh sách loại trừ và các nội dung clipboard có đánh dấu bí mật; bạn vẫn nên tạm dừng ghi nhận khi xử lý thông tin nhạy cảm. Lịch sử không có mã hóa riêng ở tầng ứng dụng.
 

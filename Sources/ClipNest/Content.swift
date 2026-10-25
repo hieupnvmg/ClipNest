@@ -81,10 +81,30 @@ final class PreviewCache {
     return icon
   }
 }
+private struct ClipboardDragModifier: ViewModifier {
+  let allowed: Bool
+  let item: Clip
+  @ViewBuilder func body(content: Content) -> some View {
+    if allowed {
+      content.onDrag {
+        if item.kind == "Image", let data = item.data {
+          return NSItemProvider(item: data as NSData, typeIdentifier: "public.png")
+        }
+        return NSItemProvider(object: item.text as NSString)
+      }
+    } else {
+      content
+    }
+  }
+}
 struct ClipCard: View {
   let clip: Clip
   let selected: Bool
   let number: Int
+  var masked = false
+  var revealed = false
+  var protectionLabel = ""
+  var onPrivacyAction: (() -> Void)? = nil
   var body: some View {
     VStack(spacing: 0) {
       HStack(spacing: 8) {
@@ -104,7 +124,9 @@ struct ClipCard: View {
         }
       }.foregroundColor(.white).padding(.horizontal, 13).frame(height: 52).background(
         clip.color.gradient)
-      preview.frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+      Group {
+        if masked { maskedPreview } else { preview }
+      }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
     }
     .frame(width: 242, height: 248)
     .background(Color(nsColor: .controlBackgroundColor))
@@ -121,9 +143,38 @@ struct ClipCard: View {
           ).padding(7)
       }
     }
+    .overlay(alignment: .bottomLeading) {
+      if revealed {
+        Button {
+          onPrivacyAction?()
+        } label: {
+          Label("Che lại", systemImage: "eye.slash").font(.system(size: 10))
+        }
+        .buttonStyle(.plain).padding(5).background(.regularMaterial, in: Capsule()).padding(7)
+      }
+    }
     .shadow(color: .black.opacity(0.10), radius: 7, x: 0, y: 3)
     .accessibilityElement(children: .combine)
     .accessibilityLabel("\(clip.kind), \(clip.displayTitle.prefix(100)), from \(clip.source)")
+  }
+  var maskedPreview: some View {
+    VStack(alignment: .leading, spacing: 9) {
+      Label("Đã che", systemImage: "lock.shield").font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(.secondary)
+      if !clip.title.isEmpty {
+        Text(clip.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+      }
+      Text(clip.text).font(.system(size: 13)).lineLimit(5).frame(
+        maxWidth: .infinity, alignment: .leading)
+      Spacer(minLength: 0)
+      Text(protectionLabel).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+      Button {
+        onPrivacyAction?()
+      } label: {
+        Label("Hiện 15 giây", systemImage: "eye").font(.system(size: 11))
+      }
+      .buttonStyle(.borderless)
+    }.padding(13)
   }
   @ViewBuilder var preview: some View {
     switch clip.kind {
@@ -191,7 +242,7 @@ struct ClipCard: View {
     }
   }
 }
-struct Content: View {
+struct ClipboardContent: View {
   @ObservedObject var store: Store
   let boardColors: [Color] = [.red, .orange, .green, .blue, .purple, .pink]
   var body: some View {
@@ -206,20 +257,28 @@ struct Content: View {
           ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 18) {
               ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                ClipCard(clip: item, selected: selectedID == item.id, number: index)
-                  .id(item.id)
-                  .onTapGesture(count: 2) { store.copy(item) }
-                  .onTapGesture {
-                    store.selected = item.id
-                    (NSApp.delegate as? AppDelegate)?.focusCards()
-                  }
-                  .contextMenu { cardMenu(item) }
-                  .onDrag {
-                    if item.kind == "Image", let data = item.data {
-                      return NSItemProvider(item: data as NSData, typeIdentifier: "public.png")
+                let masked = store.isMasked(item)
+                ClipCard(
+                  clip: store.displayClip(item), selected: selectedID == item.id, number: index,
+                  masked: masked, revealed: store.revealedSensitiveIDs.contains(item.id),
+                  protectionLabel: store.sensitiveProtectionEnabled
+                    ? store.protection(for: item).label : "",
+                  onPrivacyAction: {
+                    if masked {
+                      store.revealSensitiveItem(item)
+                    } else {
+                      store.hideRevealedSensitiveItem(item.id)
                     }
-                    return NSItemProvider(object: item.text as NSString)
                   }
+                )
+                .id(item.id)
+                .onTapGesture(count: 2) { store.copy(item) }
+                .onTapGesture {
+                  store.selected = item.id
+                  (NSApp.delegate as? AppDelegate)?.focusCards()
+                }
+                .contextMenu { cardMenu(item) }
+                .modifier(ClipboardDragModifier(allowed: !masked, item: item))
               }
             }.padding(.horizontal, 20).padding(.vertical, 8)
           }
@@ -249,6 +308,7 @@ struct Content: View {
     }
     .onChange(of: store.query) { _ in store.selected = store.filtered.first?.id }
     .onChange(of: store.kind) { _ in store.selected = store.filtered.first?.id }
+    .onChange(of: store.settings) { value in if value { store.hideRevealedSensitiveItems() } }
     .sheet(isPresented: $store.settings) { preferences }
     .sheet(item: $store.editing) { item in editor(item) }
   }
@@ -376,7 +436,16 @@ struct Content: View {
       Divider()
       Button("Remove from Pinboard") { store.pin(item, to: nil) }
     }
-    Button("Edit / Rename…") { store.edit(item) }
+    if store.sensitiveProtectionEnabled && store.protection(for: item).isSensitive {
+      Button(store.isMasked(item) ? "Hiện tạm 15 giây" : "Che lại") {
+        if store.isMasked(item) {
+          store.revealSensitiveItem(item)
+        } else {
+          store.hideRevealedSensitiveItem(item.id)
+        }
+      }
+    }
+    Button("Edit / Rename…") { store.edit(item) }.disabled(store.isMasked(item))
     Divider()
     Button("Delete Item", role: .destructive) { store.remove(item) }
   }
@@ -388,7 +457,7 @@ struct Content: View {
             width: 32, height: 32)
           Text("ClipNest").font(.title2.bold())
           Spacer()
-          Text("0.4.1").foregroundStyle(.secondary)
+          Text("0.5.0").foregroundStyle(.secondary)
         }
         Divider()
         VStack(alignment: .leading, spacing: 8) {
@@ -464,6 +533,25 @@ struct Content: View {
         Text("Pinned items are always kept. Retention applies when you save these settings.").font(
           .caption
         ).foregroundStyle(.secondary)
+        Divider()
+        VStack(alignment: .leading, spacing: 8) {
+          Toggle("Tự bảo vệ nội dung nhạy cảm", isOn: $store.sensitiveProtectionEnabled).font(
+            .headline)
+          Text(
+            "Tự bỏ qua mật khẩu, token, private key nhận diện được. Không thay đổi clipboard gốc."
+          ).font(.caption).foregroundStyle(.secondary)
+          Picker("Thông tin cá nhân", selection: $store.personalDataAction) {
+            Text("Che trên giao diện").tag("mask")
+            Text("Không lưu").tag("skip")
+          }.disabled(!store.sensitiveProtectionEnabled)
+          Text(
+            "Email, số điện thoại và số thẻ được che; nút Hiện chỉ mở tạm 15 giây. Chế độ che vẫn lưu nội dung gốc trên máy để dán lại."
+          ).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+          Text(
+            "Chỉ nhận diện văn bản, có thể nhầm hoặc bỏ sót; chưa quét chữ trong ảnh. Nội dung cũ được che khi nhận diện, không tự xóa khỏi lịch sử."
+          ).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        Divider()
         Text("Ignore applications").font(.headline)
         TextField("Bundle IDs separated by commas", text: $store.excluded).textFieldStyle(
           .roundedBorder)
@@ -527,8 +615,15 @@ struct Content: View {
         TextEditor(text: $store.editedText).font(.system(size: 14)).frame(height: 200).border(
           .secondary.opacity(0.2))
       }
+      if let message = store.editingPrivacyMessage {
+        Text(message).font(.caption).foregroundStyle(.orange)
+      }
       HStack {
-        Button("Cancel") { store.editing = nil }.keyboardShortcut(.cancelAction)
+        Button("Cancel") {
+          store.editing = nil
+          store.editedText = ""
+          store.editedTitle = ""
+        }.keyboardShortcut(.cancelAction)
         Spacer()
         Button("Save") { store.saveEdit() }.keyboardShortcut(.defaultAction)
       }
