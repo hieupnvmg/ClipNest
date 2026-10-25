@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 138 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 142 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -48,3 +48,7 @@ Presentation được cache có giới hạn, bản dùng để render loại b�
 Các mẫu credential trong test đều là dữ liệu giả dựng tại runtime. Kiểm tra bao gồm không ghi secret vào SQLite, không thay clipboard, masking Unicode, Luhn, rich text, cache, preference, thời hạn reveal và editor.
 
 Tham khảo định dạng: [GitHub secret-scanning patterns](https://docs.github.com/en/code-security/reference/secret-security/supported-secret-scanning-patterns), [Stripe authentication](https://docs.stripe.com/api/authentication).
+
+## Cache feed OTA
+
+Từ 0.5.1, SPUUpdaterDelegate trả URL feed với query `clipnest_check` ngẫu nhiên cho mỗi lượt để tránh cache CDN cũ. Query không chứa ID thiết bị, lịch sử hay dữ liệu cá nhân; body và chữ ký không thay đổi. Manual check cũng xóa response cache của URL gốc. Khi phát hành, upload asset và push feed xong rồi mới thay bản app đang cài trên máy để tránh chạy bản mới hơn feed trong lúc phát hành.

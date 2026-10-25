@@ -509,6 +509,28 @@ func runSelfTests() {
     "Controller also navigates after removing text-field focus")
   otherPanel.close()
   testPanel.close()
+  let baseFeed = "https://raw.githubusercontent.com/hieupnvmg/ClipNest/main/updates/appcast.xml"
+  let firstFeed = UpdateFeed.freshURL(from: baseFeed, nonce: "first-check")!
+  let nextFeed = UpdateFeed.freshURL(from: baseFeed, nonce: "next-check")!
+  check(
+    firstFeed != nextFeed && firstFeed.path == URL(string: baseFeed)!.path
+      && firstFeed.host == URL(string: baseFeed)!.host,
+    "Update requests use a fresh cache key without changing feed origin or path")
+  let withQuery = UpdateFeed.freshURL(
+    from: baseFeed + "?channel=stable&clipnest_check=old", nonce: "new")!
+  let queryItems = URLComponents(url: withQuery, resolvingAgainstBaseURL: false)!.queryItems!
+  check(
+    queryItems.contains(URLQueryItem(name: "channel", value: "stable"))
+      && queryItems.filter { $0.name == "clipnest_check" }.count == 1
+      && queryItems.contains(URLQueryItem(name: "clipnest_check", value: "new")),
+    "Feed refresh preserves other parameters and replaces old cache keys")
+  check(
+    UpdateFeed.freshURL(from: "http://example.com/feed") == nil
+      && UpdateFeed.freshURL(from: "file:///tmp/feed") == nil,
+    "Feed refresh never downgrades HTTPS transport")
+  check(
+    UpdateService.shared.responds(to: NSSelectorFromString("feedURLStringForUpdater:")),
+    "Sparkle updater delegate exposes the fresh feed URL callback")
   checks += runSensitiveContentTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
@@ -590,7 +612,8 @@ func runSelfTests() {
   let width: CGFloat = settings ? 560 : 1440
   let height: CGFloat = settings ? 740 : 346
   let content =
-    settings ? AnyView(ClipboardContent(store: store).preferences) : AnyView(ClipboardContent(store: store))
+    settings
+    ? AnyView(ClipboardContent(store: store).preferences) : AnyView(ClipboardContent(store: store))
   let root = content.frame(width: width, height: height).background(
     Color(nsColor: .windowBackgroundColor)
   ).environment(\.colorScheme, .light)
