@@ -88,6 +88,7 @@ extension Color {
   }
 }
 final class Store: ObservableObject {
+  @MainActor lazy var passwordGenerator = PasswordGeneratorModel()
   @MainActor lazy var pikabin = PikabinSharing(
     clipboardCount: { [weak self] in self?.pasteboard.changeCount ?? -1 },
     copyLink: { [weak self] url in
@@ -525,6 +526,24 @@ final class Store: ObservableObject {
       guard self?.writeClipboard(ready, plain: plain) == true else { return }
       (NSApp.delegate as? AppDelegate)?.hideAndPaste()
     }
+  }
+  @discardableResult func copyGeneratedPassword(_ password: String) -> Bool {
+    guard !password.isEmpty else { return false }
+    var item = Clip(source: "ClipNest", kind: "Text", text: password,
+      title: "Password: generated", bundleID: "local.clipnest.app")
+    guard writeClipboard(item) else { return false }
+    // The contextual title makes this entry use the existing full-secret mask.
+    var next = clips
+    if let index = next.firstIndex(where: { $0.kind == "Text" && $0.text == password }) {
+      let previous = next.remove(at: index)
+      item.id = previous.id
+      item.board = previous.board
+    }
+    next.insert(item, at: 0)
+    clips = retaining(next)
+    if selected == nil || !clips.contains(where: { $0.id == selected }) { selected = item.id }
+    save()
+    return true
   }
   func copyOnly(_ item: Clip) {
     prepareClipboardItem(item) { [weak self] ready in

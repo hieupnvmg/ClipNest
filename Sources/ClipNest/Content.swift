@@ -281,6 +281,7 @@ struct ClipboardContent: View {
     .sheet(isPresented: $store.settings) { preferences }
     .sheet(item: $store.editing) { item in editor(item) }
     .modifier(PikabinPresentation(sharing: store.pikabin))
+    .modifier(PasswordGeneratorPresentation(model: store.passwordGenerator, store: store))
   }
   var toolbar: some View {
     HStack(spacing: 10) {
@@ -305,6 +306,12 @@ struct ClipboardContent: View {
         }.buttonStyle(.plain).help("Search · ⌘F").accessibilityLabel("Search clipboard")
       }
       Spacer(minLength: 0)
+      Button { store.passwordGenerator.open() } label: {
+        Label("Password", systemImage: "key.fill")
+          .font(.system(size: 12, weight: .medium)).padding(.horizontal, 10).frame(height: 28)
+      }.buttonStyle(.plain)
+        .modifier(GlassControlSurface(enabled: store.interfaceStyle == .liquidGlass))
+        .help("Generate a secure password").accessibilityLabel("Generate password")
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 7) {
           boardTab("Clipboard", value: nil, index: 0)

@@ -663,6 +663,7 @@ import SwiftUI
   checks += await runSensitiveContentTests()
   checks += await runImageStorageTests()
   checks += await runPikabinTests()
+  checks += runPasswordTests()
   print("All \(checks) integration checks passed. General system clipboard was not modified.")
 }
 @MainActor func renderPreview(to path: String, settings: Bool = false, privacy: Bool = false) async {
@@ -754,10 +755,15 @@ import SwiftUI
   }
   let dark = CommandLine.arguments.contains("--dark-preview")
   let sharing = CommandLine.arguments.contains("--pikabin-preview") ? await pikabinPreview() : nil
-  let width: CGFloat = sharing != nil ? 480 : (settings ? 560 : 1440)
-  let height: CGFloat = sharing != nil ? 290 : (settings ? 740 : 346)
+  let passwordPreview = CommandLine.arguments.contains("--password-preview")
+  let width: CGFloat = passwordPreview ? 460 : (sharing != nil ? 480 : (settings ? 560 : 1440))
+  let height: CGFloat = passwordPreview ? 350 : (sharing != nil ? 290 : (settings ? 740 : 346))
   let content: AnyView
-  if let sharing { content = AnyView(PikabinShareSheet(sharing: sharing)) }
+  if passwordPreview {
+    store.passwordGenerator.open()
+    content = AnyView(PasswordGeneratorSheet(model: store.passwordGenerator, store: store))
+  }
+  else if let sharing { content = AnyView(PikabinShareSheet(sharing: sharing)) }
   else if settings { content = AnyView(ClipboardContent(store: store).preferences) }
   else { content = AnyView(ClipboardContent(store: store)) }
   let root = content.frame(width: width, height: height).background(

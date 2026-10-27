@@ -7,7 +7,7 @@
 ../ClipNest.app/Contents/MacOS/ClipNest --self-test
 ```
 
-Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 232 kiểm tra tích hợp trên dữ liệu tạm.
+Build mặc định theo kiến trúc máy đang dùng, ký ad-hoc. Bản phát hành trong repo là Apple Silicon, chưa notarize. Bộ kiểm tra hiện có 259 kiểm tra tích hợp trên dữ liệu tạm.
 
 ## Dữ liệu
 
@@ -138,3 +138,11 @@ Live smoke test (chỉ chạy khi cần kiểm tra tích hợp thật):
 ```
 
 Lệnh tạo một paste từ mẫu cố định không có dữ liệu cá nhân, hết hạn1tuần, đọc .raw và so sánh byte text. Đã xác nhận client Swift tạo link thành công, raw tiếng Việt/emoji/ký tự reserved đúng nguyên bản; trang HTML HTTP200 hiển thị “7 days”. Self-test bình thường dùng stub, không gọi PikaBin.
+
+## Password generator (0.5.10)
+
+Nút Password cố định cạnh vùng pinboard, mở sheet không gọi mạng. SecRandomCopyBytes cung cấp byte CSPRNG của Apple, rejection sampling bỏ modulo bias. Candidate thiếu một nhóm ký tự được tạo lại hoàn toàn, không ép vị trí cố định. Độ dài12–64, default20; luôn có lowercase/uppercase/digit, symbols mặc định bật. RNG lỗi phải fail closed, không fallback Math.random hay giá trị dự đoán được.
+
+Model không lưu preferences hay draft vào disk; hide/regenerate/dismiss xóa/che nội dung tạm trên UI. Chỉ Copy mới ghi vào pasteboard và history. Title `Password: generated` dùng rule contextual-secret hiện có để mục được full-mask mà không cần đổi schema. Original vẫn lưu plaintext như lịch sử hiện tại, không phải password vault. Copy lặp giữ ID/pin. Chưa Copy thì chỉ nằm trong model tạm. Không tự đẩy mật khẩu lên PikaBin.
+
+259 checks gồm các sample12/20/64 ký tự có/không symbols, category coverage, rejection sampling, invalid input/RNG failure, lifecycle model, private pasteboard roundtrip, history mask/restart/dedup. Preview `--render-preview path --password-preview` chỉ dùng dữ liệu tạm và không copy password.

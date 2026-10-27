@@ -60,6 +60,7 @@ Nhấn **`⇧⌘V`** → gõ từ khóa → chọn nội dung → nhấn **`Ente
 | **Tìm lại thật nhanh** | Gõ ngay khi mở, dùng phím mũi tên để chọn hoặc `⌘1`–`⌘9` để dán nhanh. |
 | **Sắp xếp bằng pinboard** | Gom mẫu trả lời, ghi chú và link thường dùng thành từng nhóm. |
 | **Dán theo ý bạn** | Dán giữ định dạng hoặc chọn văn bản thuần. |
+| **Tạo mật khẩu nhanh** | Nút Password cạnh pinboard: chọn độ dài, tạo lại và copy; mật khẩu đã copy được lưu và che trong lịch sử khi bật bảo vệ. |
 | **Chia sẻ thành link** | Chuột phải vào text → Push to pikab.in, lưu trong 1 tuần. |
 | **Gọn trên màn hình** | Bảng clipboard ở cạnh dưới, hỗ trợ sáng/tối và giao diện Liquid Glass. |
 | **Tùy chỉnh cho quen tay** | Đổi phím tắt, độ trong suốt, bật khởi động cùng macOS và cập nhật trong app. |
@@ -147,6 +148,7 @@ Press **`⇧⌘V`** → type to search → select an item → press **`Enter`**.
 | **Find it quickly** | Type as soon as the panel opens, select with arrow keys, or quick-paste with `⌘1`–`⌘9`. |
 | **Organize with pinboards** | Group your go-to replies, notes, and links. |
 | **Paste your way** | Keep formatting or paste as plain text. |
+| **Generate passwords** | Use Password next to the pinboards to choose a length, regenerate, and copy. Copied passwords are saved and masked in history when protection is enabled. |
 | **Share as a link** | Right-click text → Push to pikab.in, with a one-week expiration. |
 | **Stay out of the way** | A bottom-of-screen panel with light, dark, and Liquid Glass appearances. |
 | **Make it feel familiar** | Customize the shortcut and transparency, launch at login, and update in the app. |
