@@ -48,6 +48,13 @@ import SwiftUI
   check(s.clips[0].kind == "Text", "Multiline text is not misclassified as URL")
   capture("#FF5733")
   check(s.clips[0].kind == "Color", "Hex color capture")
+  let link = s.clips.first { $0.kind == "Link" }!
+  s.pin(link, to: "Work")
+  s.kind = "Color"
+  s.selectBoard(Store.linksBoard)
+  check(s.filtered.map(\.id) == [link.id], "Useful Links shows URLs across pinboards and filters")
+  s.kind = "All types"
+  s.selectBoard(nil)
   let before = s.clips.count
   s.paused = true
   capture("paused")

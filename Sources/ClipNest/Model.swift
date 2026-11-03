@@ -176,7 +176,8 @@ final class Store: ObservableObject {
     self.defaults = defaults
     self.pasteboard = pasteboard
     count = pasteboard.changeCount
-    boards = defaults.stringArray(forKey: "boards") ?? [Self.linksBoard, "Important Notes", "Work"]
+    let savedBoards = defaults.stringArray(forKey: "boards") ?? ["Important Notes", "Work"]
+    boards = [Self.linksBoard] + savedBoards.filter { $0 != Self.linksBoard }
     excluded =
       defaults.string(forKey: "excluded")
       ?? "com.1password.1password,com.agilebits.onepassword7,com.apple.keychainaccess"
@@ -204,7 +205,10 @@ final class Store: ObservableObject {
   var filtered: [Clip] {
     if let result = cachedFiltered { return result }
     let result = clips.filter { item in
-      (board == nil || item.board == board) && (kind == "All types" || item.kind == kind)
+      let matchesBoard = board == Self.linksBoard
+        ? item.kind == "Link"
+        : (board == nil || item.board == board) && (kind == "All types" || item.kind == kind)
+      return matchesBoard
         && (query.isEmpty || item.text.localizedCaseInsensitiveContains(query)
           || item.source.localizedCaseInsensitiveContains(query)
           || item.title.localizedCaseInsensitiveContains(query))

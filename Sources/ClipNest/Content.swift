@@ -318,12 +318,14 @@ struct ClipboardContent: View {
           ForEach(Array(store.boards.enumerated()), id: \.element) { index, name in
             boardTab(name, value: name, index: index)
               .contextMenu {
-                Button("Rename Pinboard…") {
-                  store.renamingBoard = name
-                  store.newBoard = name
-                  store.showRenameBoard = true
+                if name != Store.linksBoard {
+                  Button("Rename Pinboard…") {
+                    store.renamingBoard = name
+                    store.newBoard = name
+                    store.showRenameBoard = true
+                  }
+                  Button("Remove Pinboard") { store.deleteBoard(name) }
                 }
-                Button("Remove Pinboard") { store.deleteBoard(name) }
               }
           }
           Button {
