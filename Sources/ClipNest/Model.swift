@@ -176,7 +176,7 @@ final class Store: ObservableObject {
     self.defaults = defaults
     self.pasteboard = pasteboard
     count = pasteboard.changeCount
-    boards = defaults.stringArray(forKey: "boards") ?? ["Useful Links", "Important Notes", "Work"]
+    boards = defaults.stringArray(forKey: "boards") ?? [Self.linksBoard, "Important Notes", "Work"]
     excluded =
       defaults.string(forKey: "excluded")
       ?? "com.1password.1password,com.agilebits.onepassword7,com.apple.keychainaccess"
@@ -469,6 +469,10 @@ final class Store: ObservableObject {
       item.title = old.title
       item.board = old.board
     }
+    if item.kind == "Link", item.board == nil {
+      ensureLinksBoard()
+      item.board = Self.linksBoard
+    }
     next.insert(item, at: 0)
     clips = retaining(next) // Publish one complete update, never intermediate lists.
     if selected == nil || !clips.contains(where: { $0.id == selected }) { selected = item.id }
@@ -616,6 +620,23 @@ final class Store: ObservableObject {
       return progress
     }
     return provider
+  }
+  static let linksBoard = "Useful Links"
+
+  private func ensureLinksBoard() {
+    if !boards.contains(Self.linksBoard) {
+      boards.append(Self.linksBoard)
+    }
+  }
+
+  func saveLink(_ item: Clip) {
+    guard let index = clips.firstIndex(where: { $0.id == item.id }),
+      Clip.textKind(clips[index].text) == "Link"
+    else { return }
+
+    ensureLinksBoard()
+    pin(clips[index], to: Self.linksBoard)
+    toast = "Saved to Useful Links"
   }
   func pin(_ item: Clip, to board: String?) {
     if let i = clips.firstIndex(where: { $0.id == item.id }) {

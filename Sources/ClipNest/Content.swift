@@ -418,6 +418,9 @@ struct ClipboardContent: View {
         .help(store.isMasked(item) ? "Hiện tạm nội dung trước khi gửi." : "Gửi text gốc lên pikab.in, lưu 1 tuần.")
     }
     Divider()
+    if item.kind == "Link", item.board != Store.linksBoard {
+      Button("Save to Useful Links") { store.saveLink(item) }
+    }
     Menu("Move to Pinboard") {
       ForEach(store.boards, id: \.self) { name in Button(name) { store.pin(item, to: name) } }
       Divider()

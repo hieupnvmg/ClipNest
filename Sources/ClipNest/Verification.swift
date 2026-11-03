@@ -43,6 +43,7 @@ import SwiftUI
   s.query = ""
   capture("https://example.com/docs")
   check(s.clips[0].kind == "Link", "HTTP link detection")
+  check(s.clips[0].board == Store.linksBoard, "Captured URL is automatically pinned")
   capture("https://example.com\nmore text")
   check(s.clips[0].kind == "Text", "Multiline text is not misclassified as URL")
   capture("#FF5733")
