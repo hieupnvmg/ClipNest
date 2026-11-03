@@ -6,6 +6,21 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.11</title>
+            <pubDate>Tue, 03 Nov 2026 21:37:14 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>24</sparkle:version>
+            <sparkle:shortVersionString>0.5.11</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Tự lưu đường dẫn
+
+- Khi bạn copy một URL HTTP hoặc HTTPS riêng lẻ, ClipNest tự ghim vào Useful Links.
+- Link đã ghim ở bảng khác vẫn ở bảng đó.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.11/ClipNest-0.5.11-Apple-Silicon.dmg" length="3228030" type="application/octet-stream" sparkle:edSignature="icwR/JkHUe2Fc59qcsx9Exwq1PH9LQRAcKMr3zNu6tsCUGksmz9bPIVXVbXzEcwYxLhxhNxM2JDvXrRjiRKrAg=="/>
+        </item>
+        <item>
             <title>0.5.10</title>
             <pubDate>Tue, 27 Oct 2026 17:37:04 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -40,27 +55,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.9/ClipNest-0.5.9-Apple-Silicon.dmg" length="3173122" type="application/octet-stream" sparkle:edSignature="rjDS039Lk5+KKwVgiwZv6e4rtj0M1vSaiw7NS3s3fgRZHOthsHztiLOYA0o/xOw43KmM+1mdbgGMDdF7c02/Ag=="/>
         </item>
-        <item>
-            <title>0.5.8</title>
-            <pubDate>Sun, 25 Oct 2026 15:32:29 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>21</sparkle:version>
-            <sparkle:shortVersionString>0.5.8</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Nhẹ RAM hơn với lịch sử nhiều ảnh
-
-- Ảnh gốc nằm trong SQLite và chỉ được đọc khi cần, thay vì nạp toàn bộ khi mở app.
-- Tải ảnh xem trước ở luồng nền, hủy yêu cầu còn chờ khi thẻ cuộn khỏi màn hình và giữ cache thumbnail có giới hạn.
-- Copy/dán và kéo thả vẫn dùng ảnh gốc, giữ nguyên chất lượng.
-- Ghim, đổi tên và sắp xếp ảnh không cần tải hoặc ghi lại dữ liệu ảnh gốc.
-- Lịch sử cũ được nâng cấp tự động, giữ nguyên ảnh và pinboard.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.8/ClipNest-0.5.8-Apple-Silicon.dmg" length="3086318" type="application/octet-stream" sparkle:edSignature="8WPIWuDixvN714IPvFjCEbKCD8UKzm0LWIpKvGwL6GG/EuVfrthdmbKbgwxOFIT4xqFkQtcEl3zsfA9q7aX+Ag=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: HT+6aBxS8FCEO1woqcMC9jyfbdTSZX6hC83y4aG165qbJRNjoKetoHt8JmFmpRpumlwXYc2nS7mmBN03a8JxCQ==
-length: 4465
+edSignature: ycuoylqyUKHWMcdKdUnodHQtq/pcsm7eiZJ9wZEio5Yv/sGAy8q+TpQhfrdKvYu1Y2ncJVjV9Y6eMakgEob0Cg==
+length: 4065
 -->
