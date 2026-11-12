@@ -40,6 +40,18 @@ import SwiftUI
     "Dedup preserves pin and identity")
   s.query = "XIN CHÀO"
   check(s.filtered.count == 1, "Case-insensitive Unicode search")
+  let originalClips = s.clips
+  s.clips = [
+    Clip(source: "Q App", kind: "Text", text: "Source only"),
+    Clip(source: "Test", kind: "Text", text: "A Quote"),
+    Clip(source: "Test", kind: "Text", text: "query"),
+    Clip(source: "Test", kind: "Text", text: "Quick"),
+    Clip(source: "Test", kind: "Text", text: "Quote"),
+  ]
+  s.query = "Q"
+  check(s.filtered.map(\.text) == ["Quick", "Quote", "query", "A Quote", "Source only"],
+    "Search ranks case-matching prefixes first and preserves recency within each group")
+  s.clips = originalClips
   s.query = ""
   capture("https://example.com/docs")
   check(s.clips[0].kind == "Link", "HTTP link detection")
@@ -54,6 +66,17 @@ import SwiftUI
   s.selectBoard(Store.linksBoard)
   check(s.filtered.map(\.id) == [link.id], "Useful Links shows URLs across pinboards and filters")
   s.kind = "All types"
+  s.selectBoard(nil)
+  capture("192.168.1.10")
+  check(s.clips[0].board == Store.ipBoard, "Captured IPv4 address is automatically pinned")
+  capture("2001:db8::1")
+  check(s.clips[0].board == Store.ipBoard, "Captured IPv6 address is automatically pinned")
+  s.pin(s.clips[0], to: "Work")
+  capture("999.168.1.10")
+  capture("IP: 192.168.1.10")
+  s.selectBoard(Store.ipBoard)
+  check(s.filtered.map(\.text) == ["2001:db8::1", "192.168.1.10"],
+    "IP Addresses shows valid standalone addresses across pinboards")
   s.selectBoard(nil)
   let before = s.clips.count
   s.paused = true

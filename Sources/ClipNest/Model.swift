@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import ImageIO
 import CryptoKit
 import SwiftUI
@@ -57,6 +58,18 @@ struct Clip: Codable, Identifiable, Equatable {
       return "Link"
     }
     return "Text"
+  }
+  var isIPAddress: Bool {
+    guard kind == "Text" else { return false }
+    let address = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard address.utf8.count < Int(INET6_ADDRSTRLEN), !address.utf8.contains(0) else {
+      return false
+    }
+    var ipv4 = in_addr()
+    var ipv6 = in6_addr()
+    return address.withCString {
+      inet_pton(AF_INET, $0, &ipv4) == 1 || inet_pton(AF_INET6, $0, &ipv6) == 1
+    }
   }
   var symbol: String {
     switch kind {
@@ -177,7 +190,7 @@ final class Store: ObservableObject {
     self.pasteboard = pasteboard
     count = pasteboard.changeCount
     let savedBoards = defaults.stringArray(forKey: "boards") ?? ["Important Notes", "Work"]
-    boards = [Self.linksBoard] + savedBoards.filter { $0 != Self.linksBoard }
+    boards = Self.automaticBoards + savedBoards.filter { !Self.automaticBoards.contains($0) }
     excluded =
       defaults.string(forKey: "excluded")
       ?? "com.1password.1password,com.agilebits.onepassword7,com.apple.keychainaccess"
@@ -204,15 +217,42 @@ final class Store: ObservableObject {
   deinit { timer?.invalidate() }
   var filtered: [Clip] {
     if let result = cachedFiltered { return result }
-    let result = clips.filter { item in
-      let matchesBoard = board == Self.linksBoard
-        ? item.kind == "Link"
-        : (board == nil || item.board == board) && (kind == "All types" || item.kind == kind)
+    let candidates = clips.filter { item in
+      let matchesBoard: Bool
+      switch board {
+      case Self.linksBoard: matchesBoard = item.kind == "Link"
+      case Self.ipBoard: matchesBoard = item.isIPAddress
+      default:
+        matchesBoard = (board == nil || item.board == board) && (kind == "All types" || item.kind == kind)
+      }
       return matchesBoard
-        && (query.isEmpty || item.text.localizedCaseInsensitiveContains(query)
-          || item.source.localizedCaseInsensitiveContains(query)
-          || item.title.localizedCaseInsensitiveContains(query))
     }
+    guard !query.isEmpty else {
+      cachedFiltered = candidates
+      return candidates
+    }
+
+    var exactPrefixes: [Clip] = []
+    var foldedPrefixes: [Clip] = []
+    var contentMatches: [Clip] = []
+    var sourceMatches: [Clip] = []
+    for item in candidates {
+      if item.text.hasPrefix(query) || item.title.hasPrefix(query) {
+        exactPrefixes.append(item)
+        continue
+      }
+      let textMatch = item.text.range(of: query, options: .caseInsensitive, locale: .current)
+      let titleMatch = item.title.range(of: query, options: .caseInsensitive, locale: .current)
+      if textMatch?.lowerBound == item.text.startIndex
+        || titleMatch?.lowerBound == item.title.startIndex {
+        foldedPrefixes.append(item)
+      } else if textMatch != nil || titleMatch != nil {
+        contentMatches.append(item)
+      } else if item.source.localizedCaseInsensitiveContains(query) {
+        sourceMatches.append(item)
+      }
+    }
+    let result = exactPrefixes + foldedPrefixes + contentMatches + sourceMatches
     cachedFiltered = result
     return result
   }
@@ -476,6 +516,8 @@ final class Store: ObservableObject {
     if item.kind == "Link", item.board == nil {
       ensureLinksBoard()
       item.board = Self.linksBoard
+    } else if item.board == nil, item.isIPAddress {
+      item.board = Self.ipBoard
     }
     next.insert(item, at: 0)
     clips = retaining(next) // Publish one complete update, never intermediate lists.
@@ -626,6 +668,8 @@ final class Store: ObservableObject {
     return provider
   }
   static let linksBoard = "Useful Links"
+  static let ipBoard = "IP Addresses"
+  static let automaticBoards = [linksBoard, ipBoard]
 
   private func ensureLinksBoard() {
     if !boards.contains(Self.linksBoard) {

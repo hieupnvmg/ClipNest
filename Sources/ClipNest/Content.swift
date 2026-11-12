@@ -318,7 +318,7 @@ struct ClipboardContent: View {
           ForEach(Array(store.boards.enumerated()), id: \.element) { index, name in
             boardTab(name, value: name, index: index)
               .contextMenu {
-                if name != Store.linksBoard {
+                if !Store.automaticBoards.contains(name) {
                   Button("Rename Pinboard…") {
                     store.renamingBoard = name
                     store.newBoard = name
