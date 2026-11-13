@@ -74,8 +74,16 @@ import SwiftUI
   s.pin(s.clips[0], to: "Work")
   capture("999.168.1.10")
   capture("IP: 192.168.1.10")
+  capture("1.1.1.1/32")
+  check(s.clips[0].board == Store.ipBoard, "Captured IPv4 CIDR is automatically pinned")
+  capture("2001:db8::/64")
+  check(s.clips[0].board == Store.ipBoard, "Captured IPv6 CIDR is automatically pinned")
+  capture("1.1.1.1/33")
+  capture("2001:db8::/129")
+  capture("1.1.1.1/")
+  capture("1.1.1.1/+32")
   s.selectBoard(Store.ipBoard)
-  check(s.filtered.map(\.text) == ["2001:db8::1", "192.168.1.10"],
+  check(s.filtered.map(\.text) == ["2001:db8::/64", "1.1.1.1/32", "2001:db8::1", "192.168.1.10"],
     "IP Addresses shows valid standalone addresses across pinboards")
   s.selectBoard(nil)
   let before = s.clips.count

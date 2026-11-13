@@ -61,14 +61,26 @@ struct Clip: Codable, Identifiable, Equatable {
   }
   var isIPAddress: Bool {
     guard kind == "Text" else { return false }
-    let address = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard address.utf8.count < Int(INET6_ADDRSTRLEN), !address.utf8.contains(0) else {
-      return false
+    let parts = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      .split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+    guard let address = parts.first, address.utf8.count < Int(INET6_ADDRSTRLEN),
+      !address.utf8.contains(0)
+    else { return false }
+
+    var prefixLength = 0
+    if parts.count == 2 {
+      let suffix = parts[1]
+      guard suffix.utf8.allSatisfy({ (48...57).contains($0) }),
+        let length = Int(suffix), length <= 128
+      else { return false }
+      prefixLength = length
     }
+
     var ipv4 = in_addr()
     var ipv6 = in6_addr()
-    return address.withCString {
-      inet_pton(AF_INET, $0, &ipv4) == 1 || inet_pton(AF_INET6, $0, &ipv6) == 1
+    return String(address).withCString {
+      (prefixLength <= 32 && inet_pton(AF_INET, $0, &ipv4) == 1)
+        || inet_pton(AF_INET6, $0, &ipv6) == 1
     }
   }
   var symbol: String {
