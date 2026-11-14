@@ -44,6 +44,22 @@ Already installed? Right-click the ClipNest menu bar icon and select **Check for
 | **Share text as a link** | Right-click a text item and choose **Push to pikab.in (1 week)…**. Anyone with the resulting link can read the shared text until it expires. |
 | **Customize the panel** | Change the shortcut, adjust transparency, or enable **Launch at login**. Native Liquid Glass is available on macOS 26 and later, with a frosted appearance on earlier versions. |
 
+## Features in action
+
+### Find a clip as you type
+
+Type a word such as `design` to narrow the history to matching clips. The selected result is outlined, so you can see what **Return** will paste.
+
+![Searching for design in ClipNest shows a matching link and text snippet](docs/search-preview.png)
+
+### Generate a password
+
+Open **Password** from the clipboard toolbar. Adjust the length and symbols, then copy the generated password. Use the eye button to reveal it.
+
+<p align="center">
+  <img src="docs/password-preview.png" width="460" alt="ClipNest password generator with a masked 20-character password, symbol toggle, and Copy button">
+</p>
+
 <details>
 <summary>Light and dark screenshots</summary>
 
