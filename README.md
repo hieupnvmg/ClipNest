@@ -18,10 +18,69 @@
 </p>
 
 <p align="center">
-  macOS 13+ &nbsp; · &nbsp; Apple Silicon &nbsp; · &nbsp; Local clipboard history
+  <img src="https://img.shields.io/badge/macOS-13%2B-18181B?style=flat-square" alt="macOS 13 or later">
+  <img src="https://img.shields.io/badge/Mac-Apple%20Silicon-007AFF?style=flat-square" alt="Apple Silicon">
+  <img src="https://img.shields.io/github/v/release/hieupnvmg/ClipNest?style=flat-square&amp;label=release&amp;color=17803D" alt="Latest release">
 </p>
 
 ![ClipNest demo showing the clipboard panel opening, filtering as you type, and selecting an item](docs/demo.gif)
+
+<p align="center">
+  <kbd>⇧⌘V</kbd> &nbsp; Open &nbsp; → &nbsp; Type to search &nbsp; → &nbsp; <kbd>Return</kbd> to paste
+</p>
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<h3>Your clipboard, ready to reuse</h3>
+<p>Keep text, links, screenshots, colors, and file references together. Paste with formatting or choose plain text.</p>
+</td>
+<td width="50%" valign="top">
+<h3>Links and IPs, collected for you</h3>
+<p>Useful Links and IP Addresses gather standalone URLs and IPs automatically, including CIDR such as <code>1.1.1.1/32</code>. Create your own pinboards for notes and snippets.</p>
+</td>
+</tr>
+<tr>
+<td valign="top">
+<h3>Share a snippet</h3>
+<p>Right-click text and choose <strong>Push to pikab.in (1 week)…</strong> to get a shareable link. Anyone with the link can read it until it expires.</p>
+</td>
+<td valign="top">
+<h3>Make it feel at home</h3>
+<p>Choose your shortcut, transparency, and launch-at-login settings. Enjoy native Liquid Glass on macOS 26+, with a frosted appearance on earlier versions.</p>
+</td>
+</tr>
+</table>
+
+## Features in action
+
+### Find a clip as you type
+
+Start typing as soon as the panel opens. Matches at the beginning come first, with matching capitalization taking priority. Newer clips lead within each group.
+
+![Searching for design in ClipNest shows a matching link and text snippet](docs/search-preview.png)
+
+<table>
+<tr>
+<td width="40%" valign="top">
+<h3>Generate a password</h3>
+<p>Open <strong>Password</strong> beside the pinboards, choose 12–64 characters, and copy the result.</p>
+<p>Toggle symbols, reveal the password, or generate another with one click. Copied passwords appear in history and are masked when protection is enabled.</p>
+</td>
+<td width="60%">
+<img src="docs/password-preview.png" width="460" alt="Password generator with length, symbols, reveal, and copy controls">
+</td>
+</tr>
+</table>
+
+<details>
+<summary>Light and dark screenshots</summary>
+
+![ClipNest in light appearance](docs/preview.png)
+
+![ClipNest search in dark appearance](docs/preview-dark.png)
+
+</details>
 
 ## Get started
 
@@ -32,42 +91,6 @@
 ClipNest runs on Apple Silicon Macs with macOS 13 or later. The current build is distributed without Apple notarization. If macOS blocks the first launch, see [Apple’s guidance on opening apps](https://support.apple.com/102445).
 
 Already installed? Right-click the ClipNest menu bar icon and select **Check for Updates…**.
-
-## What you can do
-
-| Feature | How it works |
-| :--- | :--- |
-| **Browse clipboard history** | Reuse text, links, images, colors, and file references. Paste with the original formatting or as plain text. |
-| **Find the closest match first** | Search prioritizes text or titles that start with your query and match its capitalization. Other prefix matches come next, followed by matches elsewhere in the text or title. App-name-only matches appear last. |
-| **Organize with pinboards** | Create boards for notes and reusable snippets. **Useful Links** and **IP Addresses** automatically collect standalone HTTP/HTTPS URLs and valid IPv4 or IPv6 addresses, including CIDR such as `1.1.1.1/32` and `2001:db8::/64`. |
-| **Generate passwords** | Use **Password** next to the pinboards to generate and copy a password. Choose a length from 12 to 64 characters and whether to include symbols. |
-| **Share text as a link** | Right-click a text item and choose **Push to pikab.in (1 week)…**. Anyone with the resulting link can read the shared text until it expires. |
-| **Customize the panel** | Change the shortcut, adjust transparency, or enable **Launch at login**. Native Liquid Glass is available on macOS 26 and later, with a frosted appearance on earlier versions. |
-
-## Features in action
-
-### Find a clip as you type
-
-Type a word such as `design` to narrow the history to matching clips. The selected result is outlined, so you can see what **Return** will paste.
-
-![Searching for design in ClipNest shows a matching link and text snippet](docs/search-preview.png)
-
-### Generate a password
-
-Open **Password** from the clipboard toolbar. Adjust the length and symbols, then copy the generated password. Use the eye button to reveal it.
-
-<p align="center">
-  <img src="docs/password-preview.png" width="460" alt="ClipNest password generator with a masked 20-character password, symbol toggle, and Copy button">
-</p>
-
-<details>
-<summary>Light and dark screenshots</summary>
-
-![ClipNest in light appearance](docs/preview.png)
-
-![ClipNest search in dark appearance](docs/preview-dark.png)
-
-</details>
 
 ## Keyboard shortcuts
 
@@ -106,5 +129,6 @@ The build creates `ClipNest.app` next to the repository. The self-test uses temp
 </details>
 
 <p align="center">
+  <a href="https://github.com/hieupnvmg/ClipNest/releases/latest"><strong>Download ClipNest</strong></a> &nbsp; · &nbsp; <a href="https://github.com/hieupnvmg/ClipNest/issues">Share feedback</a><br><br>
   Made for Mac by <a href="https://github.com/hieupnvmg">hieupn</a>.
 </p>
