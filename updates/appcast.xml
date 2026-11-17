@@ -6,6 +6,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.15</title>
+            <pubDate>Tue, 17 Nov 2026 15:20:54 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>28</sparkle:version>
+            <sparkle:shortVersionString>0.5.15</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Search focus improvement
+
+Typing in the clipboard panel now returns keyboard focus to the search field when focus has moved away, helping search respond immediately.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.15/ClipNest-0.5.15-Apple-Silicon.dmg" length="3237311" type="application/octet-stream" sparkle:edSignature="REmcUabt5nJV8SEvwnxbCCMbfmLMhYUQWJAG4f/9ivJeYV64SlE4gLg3MDGr3wbyeN7LJZG/8SESVpiQL3UIBA=="/>
+        </item>
+        <item>
             <title>0.5.14</title>
             <pubDate>Fri, 13 Nov 2026 08:59:52 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -34,24 +48,9 @@ Tab IP Addresses nhận diện IPv4 và IPv6 có prefix hợp lệ, ví dụ `1.
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.13/ClipNest-0.5.13-Apple-Silicon.dmg" length="3236246" type="application/octet-stream" sparkle:edSignature="WZefMtBHw+E/LStlovG72cuNSZZA9Y5aW3M/YACfPAJdSMS4jz3WGvNffMht496pqJyyKr1TX9chvhzDMz2tAw=="/>
         </item>
-        <item>
-            <title>0.5.12</title>
-            <pubDate>Wed, 04 Nov 2026 06:56:22 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>25</sparkle:version>
-            <sparkle:shortVersionString>0.5.12</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Useful Links
-
-- Đưa Useful Links lên thanh pinboard.
-- Tự hiển thị URL trong lịch sử, kể cả link đã ghim ở bảng khác.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.12/ClipNest-0.5.12-Apple-Silicon.dmg" length="3231672" type="application/octet-stream" sparkle:edSignature="ktkA9ScTbdGjSQVBTmlWJr8Cl5HKpUv0XnUYknBueeU7D+VfS2g1q8cq32fHLD1wVZo0KbqhQMGpOodDpVedCQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: gt+oZENsCwhtv13gwrggOj3mGVm5o6AwoxjLN8xuJCmAF6mitp/8mMPfVnmeek7qo/LwLfVpPPsZ3qkH1wIqCw==
-length: 3595
+edSignature: PRtcvTqyitG0G6ac1I56wVykuQFJwf27jXHfyJ+YzxM+ae2BjjSYlYPMayjWugb5WQB0W9X13sIVqO9xNcQBAA==
+length: 3619
 -->
