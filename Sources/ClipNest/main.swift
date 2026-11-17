@@ -229,6 +229,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       store.copy(clip, plain: event.modifierFlags.contains(.shift))
       return nil
     }
+    if editor == nil, !store.settings,
+      event.modifierFlags.intersection([.command, .control]).isEmpty,
+      let characters = event.characters, !characters.isEmpty,
+      characters.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0)
+        && !(0xF700...0xF8FF).contains($0.value) })
+    {
+      store.searchVisible = true
+      panel.contentView?.layoutSubtreeIfNeeded()
+      func findSearch(in view: NSView) -> NSSearchField? {
+        if let field = view as? NSSearchField, field.identifier?.rawValue == "clipboard-search" {
+          return field
+        }
+        for child in view.subviews {
+          if let field = findSearch(in: child) { return field }
+        }
+        return nil
+      }
+      if let content = panel.contentView, let field = findSearch(in: content),
+        panel.makeFirstResponder(field), let input = field.currentEditor() {
+        input.keyDown(with: event)
+        return nil
+      }
+      focusSearch()
+    }
     return event
   }
 
