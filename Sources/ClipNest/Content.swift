@@ -13,11 +13,23 @@ struct Glass: NSViewRepresentable {
   }
   func updateNSView(_ nsView: NSVisualEffectView, context: Context) { nsView.alphaValue = opacity }
 }
+final class ClipboardSearchField: NSSearchField {
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    guard window != nil else { return }
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      (NSApp.delegate as? AppDelegate)?.searchFieldAttached(self)
+    }
+  }
+}
+
 struct SearchField: NSViewRepresentable {
   @Binding var text: String
   func makeCoordinator() -> Coordinator { Coordinator(self) }
   func makeNSView(context: Context) -> NSSearchField {
-    let field = NSSearchField()
+    let field = ClipboardSearchField()
+    field.stringValue = text
     field.placeholderString = "Search clipboard"
     field.delegate = context.coordinator
     field.sendsSearchStringImmediately = true
@@ -25,7 +37,6 @@ struct SearchField: NSViewRepresentable {
     field.font = .systemFont(ofSize: 13)
     field.bezelStyle = .roundedBezel
     field.identifier = NSUserInterfaceItemIdentifier("clipboard-search")
-    DispatchQueue.main.async { field.window?.makeFirstResponder(field) }
     return field
   }
   func updateNSView(_ field: NSSearchField, context: Context) {

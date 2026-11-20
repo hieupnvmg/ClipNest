@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   lazy var store = Store()
   var panel: NSPanel!
   var status: NSStatusItem!
+  private var pendingSearchEvents: [NSEvent] = []
   var previous: NSRunningApplication?
   let shortcuts = ShortcutRegistrar()
   let panelPresentation = PanelPresentation()
@@ -135,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     focusSearch()
   }
   func hide() {
+    pendingSearchEvents.removeAll()
     store.hideRevealedSensitiveItems()
     if store.recordingShortcut { cancelShortcutRecording() }
     panel.orderOut(nil)
@@ -163,6 +165,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     store.toast = nil
     status.button?.toolTip = "ClipNest · \(shortcut.label)"
   }
+  func searchFieldAttached(_ field: NSSearchField) {
+    guard panel.isVisible, panel.attachedSheet == nil, !store.settings,
+      field.window === panel, panel.makeFirstResponder(field)
+    else { return }
+    guard let input = field.currentEditor() else { return }
+    input.selectedRange = NSRange(location: field.stringValue.utf16.count, length: 0)
+    let events = pendingSearchEvents
+    pendingSearchEvents.removeAll()
+    for event in events { input.keyDown(with: event) }
+  }
   func focusCards() { panel.makeFirstResponder(nil) }
   func focusSearch() {
     store.searchVisible = true
@@ -177,9 +189,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
       }
       if let content = self.panel.contentView, let field = findSearch(in: content) {
-        self.panel.makeFirstResponder(field)
-        field.currentEditor()?.selectedRange = NSRange(
-          location: field.stringValue.utf16.count, length: 0)
+        self.searchFieldAttached(field)
       }
     }
   }
@@ -251,7 +261,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         input.keyDown(with: event)
         return nil
       }
+      pendingSearchEvents.append(event)
       focusSearch()
+      return nil
     }
     return event
   }
