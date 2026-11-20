@@ -229,7 +229,7 @@ final class Store: ObservableObject {
   deinit { timer?.invalidate() }
   var filtered: [Clip] {
     if let result = cachedFiltered { return result }
-    let candidates = clips.filter { item in
+    let candidates = clips.lazy.filter { [self] item in
       let matchesBoard: Bool
       switch board {
       case Self.linksBoard: matchesBoard = item.kind == "Link"
@@ -240,8 +240,9 @@ final class Store: ObservableObject {
       return matchesBoard
     }
     guard !query.isEmpty else {
-      cachedFiltered = candidates
-      return candidates
+      let result = Array(candidates)
+      cachedFiltered = result
+      return result
     }
 
     var exactPrefixes: [Clip] = []

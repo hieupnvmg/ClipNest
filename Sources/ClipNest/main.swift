@@ -129,6 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panel.setFrame(
       NSRect(x: frame.minX + 8, y: frame.minY + 8, width: frame.width - 16, height: 346),
       display: true)
+    if !panel.isVisible { store.query = "" }
     store.searchVisible = true
     store.selected = store.filtered.first?.id
     panelPresentation.isVisible = true
