@@ -631,6 +631,13 @@ import SwiftUI
   check(styleRelaunch.interfaceStyle == .standard, "Appearance style survives relaunch")
   defaults.set("unknown-style", forKey: "interfaceStyle")
   check(InterfaceStyle.load(from: defaults) == .liquidGlass, "Unknown appearance falls back safely")
+  check(GlassVariant.load(from: defaults) == .regular, "Glass defaults to the Regular variant")
+  shortcutStore.glassVariant = .clear
+  let glassRelaunch = Store(folder: folder.appendingPathComponent("glass-relaunch"),
+    defaults: defaults, pasteboard: pb, monitoring: false)
+  check(glassRelaunch.glassVariant == .clear, "Glass variant survives relaunch")
+  defaults.set("unknown-glass", forKey: "glassVariant")
+  check(GlassVariant.load(from: defaults) == .regular, "Unknown glass variant falls back safely")
   check(GlassRendering.resolve(style: .liquidGlass, reduceTransparency: false, supportsLiquid: true) == .liquid,
     "Liquid Glass uses native rendering on supported macOS")
   check(GlassRendering.resolve(style: .liquidGlass, reduceTransparency: false, supportsLiquid: false) == .material,

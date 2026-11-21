@@ -26,6 +26,8 @@ final class ClipboardSearchField: NSSearchField {
 
 struct SearchField: NSViewRepresentable {
   @Binding var text: String
+  /// Inside a Liquid Glass capsule the field draws no bezel of its own.
+  var plain = false
   func makeCoordinator() -> Coordinator { Coordinator(self) }
   func makeNSView(context: Context) -> NSSearchField {
     let field = ClipboardSearchField()
@@ -37,10 +39,16 @@ struct SearchField: NSViewRepresentable {
     field.font = .systemFont(ofSize: 13)
     field.bezelStyle = .roundedBezel
     field.identifier = NSUserInterfaceItemIdentifier("clipboard-search")
+    applyChrome(field)
     return field
+  }
+  private func applyChrome(_ field: NSSearchField) {
+    if field.isBezeled == plain { field.isBezeled = !plain }
+    if field.drawsBackground == plain { field.drawsBackground = !plain }
   }
   func updateNSView(_ field: NSSearchField, context: Context) {
     context.coordinator.parent = self
+    applyChrome(field)
     if field.stringValue != text && (field.currentEditor() as? NSTextView)?.hasMarkedText() != true
     {
       field.stringValue = text
@@ -224,6 +232,13 @@ struct ClipCard: View {
 }
 struct ClipboardContent: View {
   @ObservedObject var store: Store
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  /// True when the panel uses the system Liquid Glass (macOS 26+).
+  var nativeGlass: Bool {
+    GlassRendering.resolve(
+      style: store.interfaceStyle, reduceTransparency: reduceTransparency,
+      supportsLiquid: GlassRendering.supportsLiquid) == .liquid
+  }
   let boardColors: [Color] = [.red, .orange, .green, .blue, .purple, .pink]
   var body: some View {
     let items = store.filtered
@@ -273,9 +288,17 @@ struct ClipboardContent: View {
       footer.padding(.horizontal, 22).frame(height: 26)
     }
     .frame(minWidth: 780, minHeight: 346)
-    .background(ClipboardBackdrop(style: store.interfaceStyle, opacity: store.backgroundOpacity))
-    .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.3), lineWidth: 1))
-    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .background(
+      ClipboardBackdrop(
+        style: store.interfaceStyle, opacity: store.backgroundOpacity, variant: store.glassVariant))
+    .overlay {
+      // System glass draws its own rim; the hand-drawn outline is only for older styles.
+      if !nativeGlass {
+        RoundedRectangle(cornerRadius: PanelShape.cornerRadius)
+          .strokeBorder(.white.opacity(0.3), lineWidth: 1)
+      }
+    }
+    .clipShape(RoundedRectangle(cornerRadius: PanelShape.cornerRadius, style: .continuous))
     .alert("New Pinboard", isPresented: $store.adding) {
       TextField("Name", text: $store.newBoard)
       Button("Create") { store.createBoard() }
@@ -295,9 +318,12 @@ struct ClipboardContent: View {
     .modifier(PasswordGeneratorPresentation(model: store.passwordGenerator, store: store))
   }
   var toolbar: some View {
+    GlassGroup(enabled: nativeGlass) { toolbarControls }
+  }
+  var toolbarControls: some View {
     HStack(spacing: 10) {
       if store.searchVisible {
-        SearchField(text: $store.query).frame(width: 220)
+        SearchField(text: $store.query, plain: nativeGlass).frame(width: 220)
           .padding(.horizontal, store.interfaceStyle == .liquidGlass ? 8 : 0)
           .padding(.vertical, store.interfaceStyle == .liquidGlass ? 5 : 0)
           .modifier(GlassControlSurface(enabled: store.interfaceStyle == .liquidGlass))
@@ -306,15 +332,20 @@ struct ClipboardContent: View {
           store.searchVisible = false
           (NSApp.delegate as? AppDelegate)?.focusCards()
         } label: {
-          Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-        }.buttonStyle(.plain).help("Close search")
+          Image(systemName: nativeGlass ? "xmark" : "xmark.circle.fill")
+            .foregroundStyle(.secondary)
+            .frame(width: nativeGlass ? 28 : nil, height: nativeGlass ? 28 : nil)
+            .contentShape(Circle())
+        }.buttonStyle(.plain).modifier(GlassControlSurface(enabled: nativeGlass))
+          .help("Close search")
       } else {
         Button {
           store.searchVisible = true
         } label: {
           Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).frame(
-            width: 28, height: 28)
-        }.buttonStyle(.plain).help("Search · ⌘F").accessibilityLabel("Search clipboard")
+            width: 28, height: 28).contentShape(Circle())
+        }.buttonStyle(.plain).modifier(GlassControlSurface(enabled: nativeGlass))
+          .help("Search · ⌘F").accessibilityLabel("Search clipboard")
       }
       Spacer(minLength: 0)
       Button { store.passwordGenerator.open() } label: {
@@ -348,7 +379,7 @@ struct ClipboardContent: View {
         }
         .padding(.horizontal, store.interfaceStyle == .liquidGlass ? 5 : 0)
         .padding(.vertical, store.interfaceStyle == .liquidGlass ? 3 : 0)
-        .modifier(GlassControlSurface(enabled: store.interfaceStyle == .liquidGlass))
+        .modifier(GlassControlSurface(enabled: store.interfaceStyle == .liquidGlass, interactive: false))
       }.fixedSize(horizontal: false, vertical: true)
       Spacer(minLength: 0)
       Menu {
@@ -363,8 +394,10 @@ struct ClipboardContent: View {
       } label: {
         Image(systemName: store.paused ? "pause.circle" : "ellipsis").font(.system(size: 18)).frame(
           width: 26)
-      }.menuStyle(.borderlessButton).fixedSize().help("Options and filters").accessibilityLabel(
-        "Options")
+      }.menuStyle(.borderlessButton).fixedSize()
+        .padding(nativeGlass ? 5 : 0)
+        .modifier(GlassControlSurface(enabled: nativeGlass))
+        .help("Options and filters").accessibilityLabel("Options")
     }
   }
   func boardTab(_ name: String, value: String?, index: Int) -> some View {
@@ -467,8 +500,10 @@ struct ClipboardContent: View {
           HStack {
             Text("Appearance").font(.headline)
             Spacer()
-            Text("\(Int(store.backgroundOpacity * 100))%").monospacedDigit().foregroundStyle(
-              .secondary)
+            if !nativeGlass {
+              Text("\(Int(store.backgroundOpacity * 100))%").monospacedDigit().foregroundStyle(
+                .secondary)
+            }
           }
           Picker("Style", selection: $store.interfaceStyle) {
             ForEach(InterfaceStyle.allCases) { style in Text(style.label).tag(style) }
@@ -477,14 +512,22 @@ struct ClipboardContent: View {
             ? "Liquid Glass uses Apple’s native glass effect. Clipboard cards stay readable."
             : "Liquid Glass uses a frosted background on this Mac. Native Liquid Glass requires macOS 26.")
             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-          Slider(value: $store.backgroundOpacity, in: 0.35...1, step: 0.05) {
-            Text("Background opacity")
-          }.labelsHidden().accessibilityLabel("Background opacity")
-          HStack {
-            Text("More transparent")
-            Spacer()
-            Text("More opaque")
-          }.font(.caption).foregroundStyle(.secondary)
+          if nativeGlass {
+            Picker("Glass", selection: $store.glassVariant) {
+              ForEach(GlassVariant.allCases) { variant in Text(variant.label).tag(variant) }
+            }.pickerStyle(.segmented)
+            Text("Regular adapts for legibility. Clear shows more of what is behind the panel, like iPhone over a bright wallpaper.")
+              .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+          } else {
+            Slider(value: $store.backgroundOpacity, in: 0.35...1, step: 0.05) {
+              Text("Background opacity")
+            }.labelsHidden().accessibilityLabel("Background opacity")
+            HStack {
+              Text("More transparent")
+              Spacer()
+              Text("More opaque")
+            }.font(.caption).foregroundStyle(.secondary)
+          }
           Text("Changes apply immediately. Cards and text stay readable.").font(.caption)
             .foregroundStyle(.secondary)
         }
