@@ -5,24 +5,28 @@ import SwiftUI
 
 final class UpdateService: NSObject, ObservableObject, SPUUpdaterDelegate {
   static let shared = UpdateService()
-  private var controller: SPUStandardUpdaterController!
+  let userDriver = ClipNestUpdateDriver()
+  private var updater: SPUUpdater!
   private var started = false
   @Published private(set) var canCheckForUpdates = false
   @Published private(set) var automaticallyChecks = false
+  @Published private(set) var lastCheck: Date?
 
   private override init() {
     super.init()
-    controller = SPUStandardUpdaterController(
-      startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
-    controller.updater.publisher(for: \.canCheckForUpdates).receive(on: RunLoop.main).assign(
+    updater = SPUUpdater(
+      hostBundle: .main, applicationBundle: .main, userDriver: userDriver, delegate: self)
+    updater.publisher(for: \.canCheckForUpdates).receive(on: RunLoop.main).assign(
       to: &$canCheckForUpdates)
-    controller.updater.publisher(for: \.automaticallyChecksForUpdates).receive(on: RunLoop.main)
+    updater.publisher(for: \.automaticallyChecksForUpdates).receive(on: RunLoop.main)
       .assign(to: &$automaticallyChecks)
+    updater.publisher(for: \.lastUpdateCheckDate).receive(on: RunLoop.main)
+      .assign(to: &$lastCheck)
   }
   func start() {
     guard !started else { return }
     started = true
-    controller.startUpdater()
+    do { try updater.start() } catch { NSLog("ClipNest updater could not start: \(error)") }
   }
   func checkForUpdates() {
     guard canCheckForUpdates else { return }
@@ -31,34 +35,42 @@ final class UpdateService: NSObject, ObservableObject, SPUUpdaterDelegate {
     {
       URLCache.shared.removeCachedResponse(for: URLRequest(url: url))
     }
-    controller.checkForUpdates(nil)
+    updater.checkForUpdates()
   }
   func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
     UpdateFeed.requestParameters()
   }
-  var feedHTTPHeaders: [String: String] { controller.updater.httpHeaders ?? [:] }
+  var feedHTTPHeaders: [String: String] { updater.httpHeaders ?? [:] }
   func setAutomaticChecks(_ value: Bool) {
-    controller.updater.automaticallyChecksForUpdates = value
+    updater.automaticallyChecksForUpdates = value
   }
 }
 
 struct UpdateSettings: View {
   @ObservedObject var service = UpdateService.shared
+  private var version: String {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–"
+  }
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text("Updates").font(.headline)
-        Spacer()
-        Button("Check for Updates…") { service.checkForUpdates() }.disabled(
-          !service.canCheckForUpdates)
+    Section {
+      LabeledContent("Current version") {
+        Text(version).monospacedDigit().foregroundStyle(.secondary)
+      }
+      LabeledContent("Last checked") {
+        Text(service.lastCheck.map { $0.formatted(.relative(presentation: .named)) } ?? "Never")
+          .foregroundStyle(.secondary)
       }
       Toggle(
-        "Automatically check for updates",
-        isOn: Binding(get: { service.automaticallyChecks }, set: { service.setAutomaticChecks($0) })
-      )
-      Text(
-        "ClipNest checks GitHub for new versions. Downloads are verified before installation. Update checks do not include clipboard contents."
-      ).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        "Check for updates automatically",
+        isOn: Binding(get: { service.automaticallyChecks }, set: { service.setAutomaticChecks($0) }))
+      HStack {
+        Spacer()
+        Button("Check for Updates…") { service.checkForUpdates() }
+          .disabled(!service.canCheckForUpdates)
+      }
+    } footer: {
+      SettingsFootnote(
+        "ClipNest checks GitHub for new versions. Downloads are verified before installation. Update checks never include clipboard contents.")
     }
   }
 }
