@@ -51,6 +51,19 @@ import SwiftUI
   s.query = "Q"
   check(s.filtered.map(\.text) == ["Quick", "Quote", "query", "A Quote", "Source only"],
     "Search ranks case-matching prefixes first and preserves recency within each group")
+  s.query = "Qu"
+  check(s.filtered.map(\.text) == ["Quick", "Quote", "query", "A Quote"],
+    "Typing more characters narrows results with the same ranking")
+  s.query = "Quo"
+  check(s.filtered.map(\.text) == ["Quote", "A Quote"], "Narrowing continues across keystrokes")
+  s.query = "Q"
+  check(s.filtered.count == 5, "Deleting characters searches the full history again")
+  s.query = "Qu"
+  _ = s.filtered
+  s.clips.insert(Clip(source: "Test", kind: "Text", text: "Quiet"), at: 0)
+  s.query = "Qui"
+  check(s.filtered.map(\.text) == ["Quiet", "Quick"],
+    "New items are searched even while a query is being narrowed")
   s.clips = originalClips
   s.query = ""
   capture("https://example.com/docs")
