@@ -6,6 +6,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.20</title>
+            <pubDate>Sat, 21 Nov 2026 22:40:54 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>33</sparkle:version>
+            <sparkle:shortVersionString>0.5.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Find text in clipboard images
+
+ClipNest can recognize text in clipboard images on your Mac so you can find those images by searching for the text they contain.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.20/ClipNest-0.5.20-Apple-Silicon.dmg" length="3271284" type="application/octet-stream" sparkle:edSignature="M68+9bYP8UnAjjs/mpMz5ROqYPYz5l3Wl807s2PkeCMM15UekV+hgysOVjzne0Hh+c0AdG/shhxKa+MRVfkBAA=="/>
+        </item>
+        <item>
             <title>0.5.19</title>
             <pubDate>Sat, 21 Nov 2026 22:04:28 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -35,23 +49,9 @@ Sensitive-content scanning now runs in the background to keep the clipboard pane
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.18/ClipNest-0.5.18-Apple-Silicon.dmg" length="3245676" type="application/octet-stream" sparkle:edSignature="jSLYu5aKDs011eDMdGN0vcPuoFqP9P6UO3wuaPNYrE/2KoH+HCXkri7i1huxo+XbEWkt6CDUEh8ZMbX1vrqkCg=="/>
         </item>
-        <item>
-            <title>0.5.17</title>
-            <pubDate>Fri, 20 Nov 2026 08:55:12 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>30</sparkle:version>
-            <sparkle:shortVersionString>0.5.17</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Search improvements
-
-The search field starts empty when you reopen the clipboard panel. Searching also uses fewer temporary allocations.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.17/ClipNest-0.5.17-Apple-Silicon.dmg" length="3237726" type="application/octet-stream" sparkle:edSignature="+V/ihTb3ao4wUVi6v9znC0vZ8aA/1+DQOXntF4v34CAYxR+zrl6MySeck3nUOpuhZdB5vDlvGetUK9rgfHgKAw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: kvO1hSsgdcZtegVLZiuC9D4ntjLbKEN4j+NupP1RNBGWpB1is2gmc+xcKwe1N9XjCZqA6UE2zDnBDwFq8yDSBQ==
-length: 3443
+edSignature: pAhk2LoQboJ6h9klm9lTXyGrzakP3KrBC3Md90xqY62YwHj7XHw6di5qimwXCuxS5mylwkHqBoDBruS1cFANBw==
+length: 3466
 -->
