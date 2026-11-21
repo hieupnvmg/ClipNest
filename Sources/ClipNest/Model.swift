@@ -122,6 +122,17 @@ final class Store: ObservableObject {
   @Published var interfaceStyle: InterfaceStyle {
     didSet { defaults.set(interfaceStyle.rawValue, forKey: "interfaceStyle") }
   }
+  /// Text recognized in image clips (on-device Vision). Searchable and checked for secrets.
+  @Published private(set) var imageText: [UUID: RecognizedText] = [:] {
+    didSet { invalidateSearch() }
+  }
+  @Published var imageTextRecognition: Bool {
+    didSet {
+      defaults.set(imageTextRecognition, forKey: "imageTextRecognition")
+      if imageTextRecognition { recognizeImageText() }
+    }
+  }
+  private var recognizingImages: Set<UUID> = []
   @Published var glassVariant: GlassVariant {
     didSet { defaults.set(glassVariant.rawValue, forKey: "glassVariant") }
   }
@@ -209,6 +220,7 @@ final class Store: ObservableObject {
     interfaceStyle = InterfaceStyle.load(from: defaults)
     backgroundOpacity = AppearancePreferences.load(from: defaults)
     glassVariant = GlassVariant.load(from: defaults)
+    imageTextRecognition = defaults.object(forKey: "imageTextRecognition") as? Bool ?? true
     shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
     self.pasteboard = pasteboard
@@ -223,6 +235,7 @@ final class Store: ObservableObject {
       let database = try HistoryDatabase(url: url)
       self.database = database
       clips = try database.loadAndMigrate()
+      imageText = (try? database.imageTexts()) ?? [:]
     } catch {
       archiveUnreadable = true
       self.error =
@@ -237,6 +250,7 @@ final class Store: ObservableObject {
       }
       timer?.tolerance = 0.1
       prewarmSensitiveAssessments()
+      recognizeImageText()
     }
   }
   deinit { timer?.invalidate() }
@@ -279,7 +293,10 @@ final class Store: ObservableObject {
       if textMatch?.lowerBound == item.text.startIndex
         || titleMatch?.lowerBound == item.title.startIndex {
         foldedPrefixes.append(item)
-      } else if textMatch != nil || titleMatch != nil {
+      } else if textMatch != nil || titleMatch != nil
+        || (item.kind == "Image"
+          && recognizedText(for: item).range(of: query, options: .caseInsensitive, locale: .current) != nil)
+      {
         contentMatches.append(item)
       } else if item.source.localizedCaseInsensitiveContains(query) {
         sourceMatches.append(item)
@@ -354,6 +371,9 @@ final class Store: ObservableObject {
       pendingSnapshot = nil
       hideRevealedSensitiveItems()
       protectedPresentations.removeAll()
+      ImageTextRecognizer.shared.cancelAll()
+      recognizingImages.removeAll()
+      imageText = [:]
       clips = []
       selected = nil
       query = ""
@@ -434,9 +454,16 @@ final class Store: ObservableObject {
     }
   }
   func protection(for item: Clip) -> ProtectedPresentation {
-    if let cached = protectedPresentations[item.id], cached.original == item { return cached }
-    guard ProtectedPresentation.inspectedBytes(item) > Self.synchronousAssessmentLimit else {
-      let result = ProtectedPresentation(item)
+    let recognized = recognizedText(for: item)
+    if let cached = protectedPresentations[item.id], cached.original == item,
+      cached.recognizedText == recognized
+    {
+      return cached
+    }
+    guard ProtectedPresentation.inspectedBytes(item) + recognized.utf8.count
+      > Self.synchronousAssessmentLimit
+    else {
+      let result = ProtectedPresentation(item, recognizedText: recognized)
       protectedPresentations[item.id] = result
       return result
     }
@@ -445,6 +472,7 @@ final class Store: ObservableObject {
     return ProtectedPresentation(pending: item)
   }
   private func scheduleAssessment(_ item: Clip, urgent: Bool) {
+    let recognized = recognizedText(for: item)
     if urgent {
       guard urgentAssessments.insert(item.id).inserted else { return }
     } else {
@@ -452,7 +480,7 @@ final class Store: ObservableObject {
         backgroundAssessments.insert(item.id).inserted else { return }
     }
     let work = { [weak self] in
-      let result = ProtectedPresentation(item)
+      let result = ProtectedPresentation(item, recognizedText: recognized)
       DispatchQueue.main.async { self?.finishAssessment(result, urgent: urgent) }
     }
     if urgent {
@@ -468,7 +496,10 @@ final class Store: ObservableObject {
     guard let current = clips.first(where: { $0.id == id }) else { return }
     // Keep only results for the current version. An edit made while this ran is
     // re-requested by the card on the next render, so still re-render below.
-    if current == result.original, protectedPresentations[id]?.original != current {
+    if current == result.original, result.recognizedText == recognizedText(for: current),
+      protectedPresentations[id]?.original != current
+        || protectedPresentations[id]?.recognizedText != result.recognizedText
+    {
       protectedPresentations[id] = result
     }
     if urgent { assessmentRevision &+= 1 }
@@ -513,6 +544,38 @@ final class Store: ObservableObject {
     hideRevealedSensitiveItem(id)
     protectedPresentations.removeValue(forKey: id)
     PreviewCache.shared.images.removeObject(forKey: id.uuidString as NSString)
+    if imageText[id] != nil { imageText.removeValue(forKey: id) }
+  }
+  /// Recognized text for an image clip, only while it belongs to the same image bytes.
+  func recognizedText(for item: Clip) -> String {
+    guard item.kind == "Image", let digest = item.imageReference?.digest,
+      let recognized = imageText[item.id], recognized.digest == digest
+    else { return "" }
+    return recognized.text
+  }
+  /// Queues text recognition for every image that has none yet (oldest work first is
+  /// fine: it runs one image at a time at utility priority).
+  func recognizeImageText() {
+    guard imageTextRecognition, !archiveUnreadable else { return }
+    for item in clips where item.kind == "Image" { scheduleRecognition(item) }
+  }
+  private func scheduleRecognition(_ item: Clip) {
+    guard imageTextRecognition, let digest = item.imageReference?.digest,
+      imageText[item.id]?.digest != digest, recognizingImages.insert(item.id).inserted
+    else { return }
+    let id = item.id
+    ImageTextRecognizer.shared.recognize(read: imageReader(item)) { [weak self] text in
+      guard let self else { return }
+      self.recognizingImages.remove(id)
+      // Drop results for images that were removed, replaced or cleared meanwhile.
+      guard let text, self.imageTextRecognition,
+        self.clips.contains(where: { $0.id == id && $0.imageReference?.digest == digest })
+      else { return }
+      let recognized = RecognizedText(digest: digest, text: text)
+      self.imageText[id] = recognized
+      let database = self.database
+      self.writerQueue.async { try? database?.saveImageText(recognized, for: id) }
+    }
   }
   private func retaining(_ snapshot: [Clip]) -> [Clip] {
     guard retention > 0 else { return snapshot }
@@ -600,6 +663,7 @@ final class Store: ObservableObject {
       ProtectedPresentation.inspectedBytes(item) > Self.synchronousAssessmentLimit {
       scheduleAssessment(item, urgent: false)
     }
+    if item.kind == "Image" { scheduleRecognition(item) }
   }
   private func imageContent(from pasteboard: NSPasteboard) -> (data: Data, dimensions: String)? {
     let png: Data
@@ -671,6 +735,14 @@ final class Store: ObservableObject {
     if selected == nil || !clips.contains(where: { $0.id == selected }) { selected = item.id }
     save()
     return true
+  }
+  /// Copies the text recognized in an image as plain text.
+  func copyRecognizedText(_ item: Clip) {
+    let text = recognizedText(for: item)
+    guard !text.isEmpty, !isMasked(item) else { return }
+    if writeClipboard(Clip(source: "ClipNest", kind: Clip.textKind(text), text: text)) {
+      toast = "Copied text from image"
+    }
   }
   func copyOnly(_ item: Clip) {
     prepareClipboardItem(item) { [weak self] ready in

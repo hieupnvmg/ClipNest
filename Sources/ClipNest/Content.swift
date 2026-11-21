@@ -490,6 +490,10 @@ struct ClipboardContent: View {
     Button("Copy Only") {
       store.copyOnly(item)
     }
+    if item.kind == "Image", !store.recognizedText(for: item).isEmpty {
+      Button("Copy Text from Image") { store.copyRecognizedText(item) }
+        .disabled(store.isMasked(item))
+    }
     if PikabinSharing.supports(item) {
       Button("Push to pikab.in (1 week)…") { store.pushToPikabin(item) }
         .disabled(store.isMasked(item))

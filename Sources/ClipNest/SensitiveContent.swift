@@ -169,6 +169,8 @@ final class ProtectedPresentation {
   let isSensitive: Bool
   let containsSecret: Bool
   let label: String
+  /// Text recognized in the image this presentation was built with ("" for none).
+  let recognizedText: String
   static let pendingPlaceholder = "Đang kiểm tra nội dung…"
   /// Bytes the detectors scan for this item; their cost grows linearly with it.
   static func inspectedBytes(_ item: Clip) -> Int {
@@ -188,9 +190,13 @@ final class ProtectedPresentation {
     isSensitive = true
     containsSecret = false
     label = "Đang kiểm tra"
+    recognizedText = ""
   }
-  init(_ original: Clip) {
+  init(_ original: Clip, recognizedText: String = "") {
     self.original = original
+    self.recognizedText = recognizedText
+    // Screenshots can show passwords or tokens: check text recognized in the image too.
+    let imageText = recognizedText.isEmpty ? nil : SensitiveContent.inspect(recognizedText)
     let visibleText =
       original.kind == "Files"
       ? (original.text.removingPercentEncoding ?? original.text) : original.text
@@ -206,12 +212,15 @@ final class ProtectedPresentation {
     containsSecret =
       text.containsSecret || title.containsSecret || html?.containsSecret == true
       || rtf?.containsSecret == true || fileTitle?.containsSecret == true
+      || imageText?.containsSecret == true
     isSensitive =
       containsSecret || text.isSensitive || title.isSensitive || html?.isSensitive == true
       || rtf?.isSensitive == true || fileTitle?.isSensitive == true
+      || imageText?.isSensitive == true
     label = Array(
       Set(
         text.labels + title.labels + (html?.labels ?? []) + (rtf?.labels ?? [])
+          + (imageText?.labels ?? [])
           + (fileTitle?.labels ?? []))
     )
     .sorted().joined(
