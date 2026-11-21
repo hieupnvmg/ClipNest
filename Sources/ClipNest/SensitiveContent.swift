@@ -126,9 +126,25 @@ final class ProtectedPresentation {
   let isSensitive: Bool
   let containsSecret: Bool
   let label: String
-  var cost: Int {
-    original.text.utf8.count + original.title.utf8.count + (original.data?.count ?? 0)
-      + (original.html?.count ?? 0) + clip.text.utf8.count + clip.title.utf8.count
+  static let pendingPlaceholder = "Đang kiểm tra nội dung…"
+  /// Bytes the detectors scan for this item; their cost grows linearly with it.
+  static func inspectedBytes(_ item: Clip) -> Int {
+    var bytes = item.text.utf8.count + item.title.utf8.count + (item.html?.count ?? 0)
+    if ["Text", "Link", "Color"].contains(item.kind) { bytes += item.data?.count ?? 0 }
+    return bytes
+  }
+  /// Shown while a large item is still being inspected in the background.
+  init(pending original: Clip) {
+    self.original = original
+    var safe = original
+    safe.text = Self.pendingPlaceholder
+    safe.title = ""
+    safe.data = nil
+    safe.html = nil
+    clip = safe
+    isSensitive = true
+    containsSecret = false
+    label = "Đang kiểm tra"
   }
   init(_ original: Clip) {
     self.original = original
@@ -167,6 +183,7 @@ final class ProtectedPresentation {
       safe.data = nil
       safe.html = nil
     }
-    clip = safe
+    // Non-sensitive items display as-is; avoid keeping a second copy of large text.
+    clip = isSensitive ? safe : original
   }
 }

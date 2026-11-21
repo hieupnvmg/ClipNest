@@ -133,16 +133,21 @@ final class Store: ObservableObject {
     didSet {
       defaults.set(sensitiveProtectionEnabled, forKey: "sensitiveProtectionEnabled")
       hideRevealedSensitiveItems()
+      prewarmSensitiveAssessments()
     }
   }
   @Published private(set) var revealedSensitiveIDs: Set<UUID> = []
   private var revealTasks: [UUID: DispatchWorkItem] = [:]
-  private let protectedPresentations: NSCache<NSUUID, ProtectedPresentation> = {
-    let cache = NSCache<NSUUID, ProtectedPresentation>()
-    cache.totalCostLimit = 16 * 1024 * 1024
-    cache.countLimit = 128
-    return cache
-  }()
+  // Assessments are small (masked text only) and pruned with their clips. An evicting
+  // cache made search re-run the detectors on the main thread for older rich-text items.
+  private var protectedPresentations: [UUID: ProtectedPresentation] = [:]
+  private var backgroundAssessments: Set<UUID> = []
+  private var urgentAssessments: Set<UUID> = []
+  private let assessmentQueue = DispatchQueue(label: "local.clipnest.sensitive", qos: .utility)
+  /// Bumped when an item that was shown as pending finishes its background assessment.
+  @Published private(set) var assessmentRevision = 0
+  /// Larger items (rich-text HTML is often 100 KB–1 MB) are inspected off the main thread.
+  static let synchronousAssessmentLimit = 16 * 1024
   @Published var accessibilityGranted = AXIsProcessTrusted()
   @Published var shortcut: KeyboardShortcut
   @Published var recordingShortcut = false
@@ -154,11 +159,11 @@ final class Store: ObservableObject {
   @Published var editedText = ""
   @Published var editedTitle = ""
   @Published var selected: UUID?
-  @Published var clips: [Clip] = [] { didSet { cachedFiltered = nil } }
+  @Published var clips: [Clip] = [] { didSet { invalidateSearch() } }
   @Published var boards: [String]
   @Published var query = "" { didSet { cachedFiltered = nil } }
-  @Published var board: String? { didSet { cachedFiltered = nil } }
-  @Published var kind = "All types" { didSet { cachedFiltered = nil } }
+  @Published var board: String? { didSet { invalidateSearch() } }
+  @Published var kind = "All types" { didSet { invalidateSearch() } }
   @Published var paused = false
   @Published var excluded: String
   @Published var error: String?
@@ -176,6 +181,8 @@ final class Store: ObservableObject {
   var timer: Timer?
   private var database: HistoryDatabase?
   private var cachedFiltered: [Clip]?
+  /// Matches for the last query. Typing more characters only narrows this set.
+  private var searchBase: (query: String, ids: Set<UUID>)?
   private let writerQueue = DispatchQueue(label: "local.clipnest.history", qos: .utility)
   private var pendingSave: DispatchWorkItem?
   private var pendingSnapshot: [Clip]?
@@ -224,9 +231,14 @@ final class Store: ObservableObject {
         if self?.settings == true { self?.refreshAccessibilityStatus() }
       }
       timer?.tolerance = 0.1
+      prewarmSensitiveAssessments()
     }
   }
   deinit { timer?.invalidate() }
+  private func invalidateSearch() {
+    cachedFiltered = nil
+    searchBase = nil
+  }
   var filtered: [Clip] {
     if let result = cachedFiltered { return result }
     let candidates = clips.lazy.filter { [self] item in
@@ -249,7 +261,10 @@ final class Store: ObservableObject {
     var foldedPrefixes: [Clip] = []
     var contentMatches: [Clip] = []
     var sourceMatches: [Clip] = []
+    // A longer query can only match items the shorter one matched.
+    let narrowed = searchBase.flatMap { query.hasPrefix($0.query) ? $0.ids : nil }
     for item in candidates {
+      if let narrowed, !narrowed.contains(item.id) { continue }
       if item.text.hasPrefix(query) || item.title.hasPrefix(query) {
         exactPrefixes.append(item)
         continue
@@ -267,6 +282,7 @@ final class Store: ObservableObject {
     }
     let result = exactPrefixes + foldedPrefixes + contentMatches + sourceMatches
     cachedFiltered = result
+    searchBase = (query, Set(result.lazy.map(\.id)))
     return result
   }
   var selectedClip: Clip? {
@@ -304,7 +320,7 @@ final class Store: ObservableObject {
         if let reference = saved.images[compact[i].id] {
           compact[i].imageReference = reference
           compact[i].data = nil
-          protectedPresentations.removeObject(forKey: compact[i].id as NSUUID)
+          protectedPresentations.removeValue(forKey: compact[i].id)
           changed = true
         }
       }
@@ -332,7 +348,7 @@ final class Store: ObservableObject {
     case .success(let bytes):
       pendingSnapshot = nil
       hideRevealedSensitiveItems()
-      protectedPresentations.removeAllObjects()
+      protectedPresentations.removeAll()
       clips = []
       selected = nil
       query = ""
@@ -413,13 +429,50 @@ final class Store: ObservableObject {
     }
   }
   func protection(for item: Clip) -> ProtectedPresentation {
-    let key = item.id as NSUUID
-    if let cached = protectedPresentations.object(forKey: key), cached.original == item {
-      return cached
+    if let cached = protectedPresentations[item.id], cached.original == item { return cached }
+    guard ProtectedPresentation.inspectedBytes(item) > Self.synchronousAssessmentLimit else {
+      let result = ProtectedPresentation(item)
+      protectedPresentations[item.id] = result
+      return result
     }
-    let result = ProtectedPresentation(item)
-    protectedPresentations.setObject(result, forKey: key, cost: result.cost)
-    return result
+    // Never block rendering on the detectors; keep the item masked until it is checked.
+    scheduleAssessment(item, urgent: true)
+    return ProtectedPresentation(pending: item)
+  }
+  private func scheduleAssessment(_ item: Clip, urgent: Bool) {
+    if urgent {
+      guard urgentAssessments.insert(item.id).inserted else { return }
+    } else {
+      guard !urgentAssessments.contains(item.id),
+        backgroundAssessments.insert(item.id).inserted else { return }
+    }
+    let work = { [weak self] in
+      let result = ProtectedPresentation(item)
+      DispatchQueue.main.async { self?.finishAssessment(result, urgent: urgent) }
+    }
+    if urgent {
+      DispatchQueue.global(qos: .userInitiated).async(execute: work)
+    } else {
+      assessmentQueue.async(execute: work)
+    }
+  }
+  private func finishAssessment(_ result: ProtectedPresentation, urgent: Bool) {
+    let id = result.original.id
+    if urgent { urgentAssessments.remove(id) } else { backgroundAssessments.remove(id) }
+    // Ignore results for items that were edited, compacted or removed meanwhile.
+    guard clips.first(where: { $0.id == id }) == result.original else { return }
+    if protectedPresentations[id]?.original != result.original {
+      protectedPresentations[id] = result
+    }
+    if urgent { assessmentRevision &+= 1 }
+  }
+  /// Inspects large items in the background so search results render without waiting.
+  func prewarmSensitiveAssessments() {
+    guard sensitiveProtectionEnabled else { return }
+    for item in clips where ProtectedPresentation.inspectedBytes(item) > Self.synchronousAssessmentLimit {
+      if protectedPresentations[item.id]?.original == item { continue }
+      scheduleAssessment(item, urgent: false)
+    }
   }
   func isMasked(_ item: Clip) -> Bool {
     sensitiveProtectionEnabled && !revealedSensitiveIDs.contains(item.id)
@@ -451,7 +504,7 @@ final class Store: ObservableObject {
   }
   private func forgetCachedItem(_ id: UUID) {
     hideRevealedSensitiveItem(id)
-    protectedPresentations.removeObject(forKey: id as NSUUID)
+    protectedPresentations.removeValue(forKey: id)
     PreviewCache.shared.images.removeObject(forKey: id.uuidString as NSString)
   }
   private func retaining(_ snapshot: [Clip]) -> [Clip] {
@@ -536,6 +589,10 @@ final class Store: ObservableObject {
     clips = retaining(next) // Publish one complete update, never intermediate lists.
     if selected == nil || !clips.contains(where: { $0.id == selected }) { selected = item.id }
     save()
+    if sensitiveProtectionEnabled,
+      ProtectedPresentation.inspectedBytes(item) > Self.synchronousAssessmentLimit {
+      scheduleAssessment(item, urgent: false)
+    }
   }
   private func imageContent(from pasteboard: NSPasteboard) -> (data: Data, dimensions: String)? {
     let png: Data

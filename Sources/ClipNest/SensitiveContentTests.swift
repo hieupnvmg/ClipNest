@@ -223,5 +223,33 @@ import AppKit
   check(
     !store.displayClip(encodedFile).text.contains("example.com"),
     "Encoded file URI is masked consistently with its visible file name")
+  // Large rich text is inspected off the main thread and stays masked until checked.
+  let padding = String(repeating: "<p>ordinary rich text paragraph</p>", count: 2_000)
+  let plainHTML = Clip(source: "Browser", kind: "Text", text: "Ordinary note",
+    html: Data(("<html>" + padding + "</html>").utf8))
+  let secretHTML = Clip(source: "Browser", kind: "Text", text: "Click here",
+    html: Data(("<html>" + padding + "<a href=\"https://example.com/?api_key="
+      + String(repeating: "q", count: 24) + "\">x</a></html>").utf8))
+  store.clips = [plainHTML, secretHTML]
+  let startedAt = Date()
+  check(
+    store.isMasked(plainHTML) && store.isMasked(secretHTML)
+      && store.displayClip(plainHTML).text == ProtectedPresentation.pendingPlaceholder
+      && store.displayClip(secretHTML).html == nil,
+    "Large rich text stays masked while it is inspected")
+  check(Date().timeIntervalSince(startedAt) < 0.05,
+    "Rendering a large rich-text item does not wait for sensitive-content detection")
+  let revision = store.assessmentRevision
+  for _ in 0..<200 where store.assessmentRevision < revision + 2 {
+    try? await Task.sleep(nanoseconds: 10_000_000)
+  }
+  check(
+    !store.isMasked(plainHTML) && store.displayClip(plainHTML).text == plainHTML.text,
+    "Ordinary large rich text is shown once background inspection finishes")
+  check(
+    store.isMasked(secretHTML)
+      && store.displayClip(secretHTML).text == SensitiveAssessment.secretPlaceholder,
+    "Secrets inside large rich text are masked after background inspection")
+  store.clips = []
   return count
 }
