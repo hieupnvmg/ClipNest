@@ -93,6 +93,8 @@ final class ImageTextRecognizer {
     else { return nil }
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
+    // Avoid waiting on Neural Engine model compilation in the OCR helper.
+    request.usesCPUOnly = true
     request.usesLanguageCorrection = true
     if let languages = try? request.supportedRecognitionLanguages() {
       // Vietnamese first so diacritics are kept; English covers code, logs and UI text.
