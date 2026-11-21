@@ -92,7 +92,7 @@ final class PreviewCache {
   }
   private init() {
     images.totalCostLimit = 32 * 1024 * 1024
-    icons.countLimit = 100
+    icons.countLimit = 200
   }
   func icon(_ clip: Clip) -> NSImage? {
     guard let bid = clip.bundleID else { return nil }
@@ -102,6 +102,14 @@ final class PreviewCache {
     }
     let icon = NSWorkspace.shared.icon(forFile: url.path)
     icons.setObject(icon, forKey: bid as NSString)
+    return icon
+  }
+  /// Finder icons can hit the disk (or a network volume); look each path up once.
+  func fileIcon(_ path: String) -> NSImage {
+    let key = "file:\(path)" as NSString
+    if let cached = icons.object(forKey: key) { return cached }
+    let icon = NSWorkspace.shared.icon(forFile: path)
+    icons.setObject(icon, forKey: key)
     return icon
   }
 }
@@ -227,7 +235,7 @@ struct ClipCard: View {
       VStack(spacing: 12) {
         if let first = clip.text.split(separator: "\n").first, let url = URL(string: String(first))
         {
-          Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().scaledToFit()
+          Image(nsImage: PreviewCache.shared.fileIcon(url.path)).resizable().scaledToFit()
             .frame(width: 76, height: 76)
         }
         Text(clip.displayTitle).font(.system(size: 12, weight: .medium)).lineLimit(2)

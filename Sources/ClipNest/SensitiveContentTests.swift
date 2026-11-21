@@ -83,6 +83,19 @@ import AppKit
     "ClipNest-privacy-\(UUID().uuidString)")
   let suite = "ClipNest.privacy.tests.\(UUID().uuidString)"
   let defaults = UserDefaults(suiteName: suite)!
+  // Literal prefilters skip expressions that cannot match; they must ignore case like
+  // the expressions do, including Vietnamese keywords and uppercase tokens.
+  let prefilterSamples = [
+    "MẬT KHẨU: abc123", "Mat Khau=xyz", "PASSWORD = hunter2", "API-KEY: zzz",
+    "AUTHORIZATION: Bearer abcdefgh", "-----BEGIN RSA PRIVATE KEY-----",
+    "EYJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1bml0LXRlc3QifQ.aaaaaaaaaaaaaaaa",
+    "https://user:pass@host.example",
+  ]
+  check(prefilterSamples.allSatisfy { SensitiveContent.inspect($0).containsSecret },
+    "Secret prefilters ignore case and keep Vietnamese keywords")
+  check(SensitiveContent.inspect("Liên hệ DEMO@EXAMPLE.COM").labels == ["Email"]
+      && !SensitiveContent.inspect(String(repeating: "<p>plain rich text</p>", count: 500)).isSensitive,
+    "Email detection still runs when an @ is present and is skipped otherwise")
   let board = NSPasteboard.withUniqueName()
   defer {
     try? FileManager.default.removeItem(at: folder)
