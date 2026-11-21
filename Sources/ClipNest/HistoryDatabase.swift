@@ -63,6 +63,9 @@ final class HistoryDatabase {
         try execute("BEGIN IMMEDIATE; ALTER TABLE clips ADD COLUMN image_digest TEXT; PRAGMA user_version=2; COMMIT;")
       }
       try execute("CREATE TABLE IF NOT EXISTS image_payloads (id TEXT PRIMARY KEY NOT NULL REFERENCES clips(id) ON DELETE CASCADE, payload BLOB NOT NULL)")
+      // No foreign key: recognition can finish before the debounced clip write lands.
+      // Rows are removed with their clip in save(), and orphans are pruned on load.
+      try execute("CREATE TABLE IF NOT EXISTS image_text (id TEXT PRIMARY KEY NOT NULL, digest TEXT NOT NULL, text TEXT NOT NULL)")
       try indexLegacyImages()
     } catch {
       if let connection { sqlite3_close(connection) }
@@ -214,9 +217,13 @@ final class HistoryDatabase {
     do {
       let remove = try prepare("DELETE FROM clips WHERE id=?")
       defer { sqlite3_finalize(remove) }
+      let removeText = try prepare("DELETE FROM image_text WHERE id=?")
+      defer { sqlite3_finalize(removeText) }
       for id in persisted.keys where !ids.contains(id) {
         try bind(id.uuidString, to: 1, in: remove)
         try step(remove)
+        try bind(id.uuidString, to: 1, in: removeText)
+        try step(removeText)
       }
       let upsert = try prepare(
         """
@@ -299,6 +306,32 @@ final class HistoryDatabase {
       throw error
     }
   }
+  /// Text recognized in images, keyed by clip. Rows for clips that no longer exist are
+  /// removed here, so deleted screenshots never leave their text behind for long.
+  func imageTexts() throws -> [UUID: RecognizedText] {
+    try execute("DELETE FROM image_text WHERE id NOT IN (SELECT id FROM clips)")
+    let statement = try prepare("SELECT id,digest,text FROM image_text")
+    defer { sqlite3_finalize(statement) }
+    var result: [UUID: RecognizedText] = [:]
+    while true {
+      let status = sqlite3_step(statement)
+      if status == SQLITE_DONE { break }
+      guard status == SQLITE_ROW else { throw failure() }
+      guard let id = text(statement, 0).flatMap(UUID.init(uuidString:)),
+        let digest = text(statement, 1)
+      else { continue }
+      result[id] = RecognizedText(digest: digest, text: text(statement, 2) ?? "")
+    }
+    return result
+  }
+  func saveImageText(_ recognized: RecognizedText, for id: UUID) throws {
+    let statement = try prepare("INSERT OR REPLACE INTO image_text(id,digest,text) VALUES(?,?,?)")
+    defer { sqlite3_finalize(statement) }
+    try bind(id.uuidString, to: 1, in: statement)
+    try bind(recognized.digest, to: 2, in: statement)
+    try bind(recognized.text, to: 3, in: statement)
+    try step(statement)
+  }
   var imageReferences: [UUID: ImageReference] {
     persisted.compactMapValues { $0.imageReference }
   }
@@ -356,6 +389,7 @@ final class HistoryDatabase {
       }
     }
     try save([], markMigration: true)
+    try execute("DELETE FROM image_text")
     try? execute("PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
   }
   var totalChanges: Int32 { sqlite3_total_changes(connection) }

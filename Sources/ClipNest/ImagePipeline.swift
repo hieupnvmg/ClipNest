@@ -74,8 +74,14 @@ struct DeferredImagePreview: View {
       }
     }
     .overlay(alignment: .bottom) {
-      Text(clip.text).font(.system(size: 10)).padding(.horizontal, 7).padding(.vertical, 3)
-        .background(.regularMaterial, in: Capsule()).padding(9)
+      HStack(spacing: 4) {
+        if !store.recognizedText(for: clip).isEmpty {
+          Image(systemName: "text.viewfinder").help("Text recognized · searchable")
+        }
+        Text(clip.text)
+      }
+      .font(.system(size: 10)).padding(.horizontal, 7).padding(.vertical, 3)
+      .background(.regularMaterial, in: Capsule()).padding(9)
     }
     .task(id: clip.imageReference) {
       let loaded = await store.previewImage(clip)

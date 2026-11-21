@@ -291,6 +291,20 @@ struct PreferencesView: View {
         "Pinned items are always kept; the limit applies when you click Done. History is stored in a SQLite database on this Mac.")
     }
     Section {
+      Toggle("Recognize text in images", isOn: $store.imageTextRecognition)
+      if store.imageTextRecognition {
+        LabeledContent("Images with text") {
+          Text("\(store.imageText.values.filter { !$0.text.isEmpty }.count) of \(store.clips.filter { $0.kind == "Image" }.count)")
+            .monospacedDigit().foregroundStyle(.secondary)
+        }
+      }
+    } header: {
+      Text("Images")
+    } footer: {
+      SettingsFootnote(
+        "Uses Apple’s Vision on this Mac, nothing is uploaded. Search finds screenshots by the words in them, and images that show passwords or tokens are masked.")
+    }
+    Section {
       TextField("Bundle IDs", text: $store.excluded, prompt: Text("com.example.app, …"), axis: .vertical)
         .lineLimit(1...4)
         .labelsHidden()

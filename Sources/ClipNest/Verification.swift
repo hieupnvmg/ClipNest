@@ -761,6 +761,7 @@ import SwiftUI
     "Reopening panel restores controls with the latest history and query")
   lifecycleWindow.close()
   checks += await runSensitiveContentTests()
+  checks += await runImageTextTests()
   checks += await runImageStorageTests()
   checks += await runPikabinTests()
   checks += runPasswordTests()
