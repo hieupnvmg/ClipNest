@@ -6,6 +6,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.18</title>
+            <pubDate>Sat, 21 Nov 2026 21:29:31 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>31</sparkle:version>
+            <sparkle:shortVersionString>0.5.18</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## More responsive clipboard search
+
+Sensitive-content scanning now runs in the background to keep the clipboard panel responsive while searching.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.18/ClipNest-0.5.18-Apple-Silicon.dmg" length="3245676" type="application/octet-stream" sparkle:edSignature="jSLYu5aKDs011eDMdGN0vcPuoFqP9P6UO3wuaPNYrE/2KoH+HCXkri7i1huxo+XbEWkt6CDUEh8ZMbX1vrqkCg=="/>
+        </item>
+        <item>
             <title>0.5.17</title>
             <pubDate>Fri, 20 Nov 2026 08:55:12 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -33,23 +47,9 @@ Improves search focus when opening the clipboard panel. Keystrokes received whil
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.16/ClipNest-0.5.16-Apple-Silicon.dmg" length="3237727" type="application/octet-stream" sparkle:edSignature="zWrFhXX0rgUf0g8rrNTKQbEU4/9Cs6nFVAlnMAlRTY9XhRVtELySTy4hsmyTKQI6gNQYxjyrSeRZrkZO4iHgCw=="/>
         </item>
-        <item>
-            <title>0.5.15</title>
-            <pubDate>Tue, 17 Nov 2026 15:20:54 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>28</sparkle:version>
-            <sparkle:shortVersionString>0.5.15</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Search focus improvement
-
-Typing in the clipboard panel now returns keyboard focus to the search field when focus has moved away, helping search respond immediately.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.15/ClipNest-0.5.15-Apple-Silicon.dmg" length="3237311" type="application/octet-stream" sparkle:edSignature="REmcUabt5nJV8SEvwnxbCCMbfmLMhYUQWJAG4f/9ivJeYV64SlE4gLg3MDGr3wbyeN7LJZG/8SESVpiQL3UIBA=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: wPZ05bO/rmd3ooUiEw+8Oxmy+0kws93YGj8DhB4Z3NtB/gu0Tr8rKAF3GGrKKVu5IJUUH3L2/iVYxqvmwKLTAA==
-length: 3457
+edSignature: lV+QRGbsnSVPykJVOvgXvyYtR0VP37RidcD56Alxx1sNrWA8od3s1LxGXtk5nGRo0orq4Bq9C8D8DAvAKTrgAQ==
+length: 3435
 -->
