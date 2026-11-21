@@ -459,9 +459,11 @@ final class Store: ObservableObject {
   private func finishAssessment(_ result: ProtectedPresentation, urgent: Bool) {
     let id = result.original.id
     if urgent { urgentAssessments.remove(id) } else { backgroundAssessments.remove(id) }
-    // Ignore results for items that were edited, compacted or removed meanwhile.
-    guard clips.first(where: { $0.id == id }) == result.original else { return }
-    if protectedPresentations[id]?.original != result.original {
+    // Removed items have no card waiting; don't trigger renders that would ask again.
+    guard let current = clips.first(where: { $0.id == id }) else { return }
+    // Keep only results for the current version. An edit made while this ran is
+    // re-requested by the card on the next render, so still re-render below.
+    if current == result.original, protectedPresentations[id]?.original != current {
       protectedPresentations[id] = result
     }
     if urgent { assessmentRevision &+= 1 }

@@ -250,6 +250,26 @@ import AppKit
     store.isMasked(secretHTML)
       && store.displayClip(secretHTML).text == SensitiveAssessment.secretPlaceholder,
     "Secrets inside large rich text are masked after background inspection")
+  // An edit made while the previous version is still being inspected must not leave
+  // the card waiting forever: the stale result still triggers a render.
+  let renamedSource = Clip(source: "Browser", kind: "Text", text: "Another note",
+    html: Data(("<html>" + padding + "<p>tail</p></html>").utf8))
+  store.clips = [renamedSource]
+  _ = store.isMasked(store.clips[0])
+  store.clips[0].title = "Renamed while checking"
+  let renamed = store.clips[0]
+  var seenRevision = store.assessmentRevision
+  _ = store.isMasked(renamed)
+  for _ in 0..<300 {
+    try? await Task.sleep(nanoseconds: 10_000_000)
+    guard store.assessmentRevision != seenRevision else { continue }
+    // Mirror SwiftUI: cards ask again only when the store publishes a change.
+    seenRevision = store.assessmentRevision
+    if !store.isMasked(renamed) { break }
+  }
+  check(
+    !store.isMasked(renamed) && store.displayClip(renamed).title == "Renamed while checking",
+    "Items edited during background inspection finish checking instead of staying pending")
   store.clips = []
   return count
 }
