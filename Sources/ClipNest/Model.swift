@@ -158,6 +158,7 @@ final class Store: ObservableObject {
   @Published var newBoard = ""
   @Published var adding = false
   @Published var settings = false
+  @Published var preferencesPane: PreferencesPane = .general
   @Published var editing: Clip?
   @Published var editedText = ""
   @Published var editedTitle = ""

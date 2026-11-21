@@ -39,18 +39,21 @@ struct StartupSettings: View {
   @ObservedObject private var service = LoginItemService.shared
   @Environment(\.scenePhase) private var scenePhase
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("Startup").font(.headline)
+    Section {
       Toggle("Launch at login", isOn: Binding(
         get: { service.isRegistered }, set: { service.setEnabled($0) }))
-      Text("Start ClipNest automatically when you sign in to your Mac.")
-        .font(.caption).foregroundStyle(.secondary)
       if service.status == .requiresApproval {
-        Text("Allow ClipNest in macOS Login Items to finish enabling this option.")
-          .font(.caption).foregroundStyle(.secondary)
-        Button("Open Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+        LabeledContent("Needs approval in Login Items") {
+          Button("Open Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+        }
       }
-      if let error = service.error { Text(error).font(.caption).foregroundStyle(.red) }
+      if let error = service.error {
+        Text(error).font(.caption).foregroundStyle(.red)
+      }
+    } header: {
+      Text("Startup")
+    } footer: {
+      SettingsFootnote("Start ClipNest automatically when you sign in to your Mac.")
     }
     .onAppear { service.refresh() }
     .onChange(of: scenePhase) { _ in service.refresh() }

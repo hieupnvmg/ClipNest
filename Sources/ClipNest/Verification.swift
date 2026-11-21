@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import ServiceManagement
 import CSQLite
 import Carbon
@@ -586,6 +587,33 @@ import SwiftUI
       to: NSSelectorFromString("feedParametersForUpdater:sendingSystemProfile:"))
       && !UpdateService.shared.responds(to: NSSelectorFromString("feedURLStringForUpdater:")),
     "Updater adds request parameters without changing Sparkle base URL or scheduler")
+  let notes = ReleaseNotes.blocks(markdown: "## Faster search\n\nLarge **rich text** stays\nresponsive.\n\n- One\n* Two\n")
+  check(
+    notes.map(\.kind) == [.heading, .paragraph, .bullet, .bullet]
+      && String(notes[1].text.characters) == "Large rich text stays responsive."
+      && String(notes[0].text.characters) == "Faster search",
+    "Update release notes render headings, paragraphs and bullets from Markdown")
+  let flow = UpdateFlow()
+  var choices: [SPUUserUpdateChoice] = []
+  var closes = 0
+  flow.close = { closes += 1 }
+  flow.choiceReply = { choices.append($0) }
+  flow.windowClosed()
+  flow.windowClosed()
+  check(choices == [.dismiss] && closes == 1,
+    "Closing the update window answers Later exactly once")
+  flow.choiceReply = { choices.append($0) }
+  flow.choose(.install)
+  check(choices == [.dismiss, .install] && closes == 1,
+    "Installing keeps the update window open for download progress")
+  var cancelled = 0
+  flow.cancellation = { cancelled += 1 }
+  flow.windowClosed()
+  var acknowledged = 0
+  flow.acknowledgement = { acknowledged += 1 }
+  flow.windowClosed()
+  check(cancelled == 1 && acknowledged == 1,
+    "Closing the update window cancels a check or download and acknowledges messages")
   var loginStatus = SMAppService.Status.notRegistered
   var loginRegistrations = 0
   var loginUnregistrations = 0
@@ -801,6 +829,11 @@ import SwiftUI
       ], at: 0)
   }
   store.selected = store.clips.first?.id
+  if let i = CommandLine.arguments.firstIndex(of: "--preview-pane"), i + 1 < CommandLine.arguments.count,
+    let pane = PreferencesPane(rawValue: CommandLine.arguments[i + 1])
+  {
+    store.preferencesPane = pane
+  }
   if CommandLine.arguments.contains("--search-preview") { store.searchVisible = true }
   if let i = CommandLine.arguments.firstIndex(of: "--preview-query"), i + 1 < CommandLine.arguments.count {
     store.searchVisible = true
@@ -815,10 +848,41 @@ import SwiftUI
   let dark = CommandLine.arguments.contains("--dark-preview")
   let sharing = CommandLine.arguments.contains("--pikabin-preview") ? await pikabinPreview() : nil
   let passwordPreview = CommandLine.arguments.contains("--password-preview")
-  let width: CGFloat = passwordPreview ? 460 : (sharing != nil ? 480 : (settings ? 560 : 1440))
-  let height: CGFloat = passwordPreview ? 350 : (sharing != nil ? 290 : (settings ? 740 : 346))
+  let updatePreview = CommandLine.arguments.firstIndex(of: "--update-preview").flatMap {
+    $0 + 1 < CommandLine.arguments.count ? CommandLine.arguments[$0 + 1] : nil
+  }
+  var width: CGFloat = passwordPreview ? 460 : (sharing != nil ? 480 : (settings ? 720 : 1440))
+  var height: CGFloat = passwordPreview ? 350 : (sharing != nil ? 290 : (settings ? 540 : 346))
   let content: AnyView
-  if passwordPreview {
+  if let updatePreview {
+    // Synthetic update states for checking the update window layout.
+    let flow = UpdateFlow()
+    flow.version = "0.5.19"
+    flow.date = Date()
+    flow.size = 3_245_676
+    flow.notes = ReleaseNotes.blocks(markdown: """
+      ## Native Liquid Glass
+
+      The clipboard panel now uses Apple’s **system glass**, with a Regular or Clear look.
+
+      - Redesigned Preferences with clear sections
+      - A new update window with release notes
+      - Faster search with large rich-text items
+      """)
+    switch updatePreview {
+    case "downloading": flow.phase = .downloading; flow.expected = 3_245_676; flow.received = 1_400_000
+    case "ready": flow.phase = .ready
+    case "uptodate": flow.phase = .upToDate
+    case "checking": flow.phase = .checking
+    case "error": flow.phase = .failed("The update could not be verified. Please try again later.")
+    default: flow.phase = .available
+    }
+    content = AnyView(UpdateView(flow: flow))
+    let size = NSHostingView(rootView: UpdateView(flow: flow)).fittingSize
+    width = size.width
+    height = size.height
+  }
+  else if passwordPreview {
     store.passwordGenerator.open()
     content = AnyView(PasswordGeneratorSheet(model: store.passwordGenerator, store: store))
   }
