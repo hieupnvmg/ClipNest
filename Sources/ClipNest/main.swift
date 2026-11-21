@@ -301,6 +301,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
   @objc func quit() { NSApp.terminate(nil) }
 }
+// Text-recognition helper: no UI, no app delegate; exits when the app closes its stdin.
+if CommandLine.arguments.contains(ImageTextRecognizer.helperArgument) { runImageTextHelper() }
 let app = NSApplication.shared
 if CommandLine.arguments.contains("--pikabin-smoke-test") {
   Task { @MainActor in await runPikabinSmokeTest(); exit(0) }

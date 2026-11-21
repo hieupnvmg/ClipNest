@@ -70,6 +70,19 @@ import AppKit
   check(pb.string(forType: .string)?.contains("Deploy failed") == true,
     "Copy Text from Image puts the recognized text on the clipboard")
 
+  await waitUntil { !ImageTextRecognizer.shared.isHelperRunning }
+  check(!ImageTextRecognizer.shared.isHelperRunning,
+    "Recognition runs in a helper process that exits when the queue is empty")
+  try? await Task.sleep(nanoseconds: 500_000_000)
+  let helpers = Process()
+  helpers.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+  helpers.arguments = ["-P", String(ProcessInfo.processInfo.processIdentifier), "-f", ImageTextRecognizer.helperArgument]
+  let helperList = Pipe()
+  helpers.standardOutput = helperList
+  try? helpers.run()
+  helpers.waitUntilExit()
+  check(helperList.fileHandleForReading.readDataToEndOfFile().isEmpty,
+    "No helper process is left running after recognition")
   store.flushPendingSave()
   let reopened = Store(folder: folder, defaults: defaults, pasteboard: pb, monitoring: false)
   check(reopened.recognizedText(for: reopened.clips.first { $0.id == shot.id }!).contains("Deploy failed"),
