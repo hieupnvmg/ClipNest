@@ -122,6 +122,9 @@ final class Store: ObservableObject {
   @Published var interfaceStyle: InterfaceStyle {
     didSet { defaults.set(interfaceStyle.rawValue, forKey: "interfaceStyle") }
   }
+  @Published var glassVariant: GlassVariant {
+    didSet { defaults.set(glassVariant.rawValue, forKey: "glassVariant") }
+  }
   @Published var backgroundOpacity: Double {
     didSet {
       let value = AppearancePreferences.normalize(backgroundOpacity)
@@ -204,6 +207,7 @@ final class Store: ObservableObject {
       defaults.object(forKey: "sensitiveProtectionEnabled") as? Bool ?? true
     interfaceStyle = InterfaceStyle.load(from: defaults)
     backgroundOpacity = AppearancePreferences.load(from: defaults)
+    glassVariant = GlassVariant.load(from: defaults)
     shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
     self.pasteboard = pasteboard
