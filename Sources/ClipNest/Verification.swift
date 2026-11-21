@@ -957,5 +957,13 @@ func runPerformanceChecks() {
   store.capture(source: "Benchmark", bundleID: "clipnest.benchmark")
   print("Recapture existing item: \(changes) list publications")
   print(String(format: "Unchanged SQLite saves (100 × 1000 items): %.2f ms", elapsed))
+  var history = fixtures
+  let captureStart = ProcessInfo.processInfo.systemUptime
+  for i in 0..<20 {
+    history.insert(Clip(source: "Benchmark", kind: "Text", text: "New copy \(i)"), at: 0)
+    try! db.save(history)
+  }
+  let perCapture = (ProcessInfo.processInfo.systemUptime - captureStart) * 1000 / 20
+  print(String(format: "Save after a new copy (1000+ items): %.2f ms each", perCapture))
   withExtendedLifetime(observation) {}
 }

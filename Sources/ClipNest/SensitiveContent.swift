@@ -13,31 +13,67 @@ struct SensitiveAssessment {
 enum SensitiveContent {
   private struct Rule {
     let regex: NSRegularExpression
+    /// Literal text every match must contain (any one of them). Searching for it is far
+    /// cheaper than running the expression, which tries a match at every position.
+    var hints: [String] = []
     let label: String
     let replacement: (String) -> String?
+  }
+  private struct Detector {
+    let regex: NSRegularExpression
+    var hints: [String] = []
+  }
+  /// True when the text contains at least one hint, ignoring ASCII case. Hints are ASCII,
+  /// so scanning UTF-8 bytes is exact: ASCII bytes never occur inside multi-byte characters.
+  private static func mayMatch(_ text: String, hints: [String]) -> Bool {
+    guard !hints.isEmpty else { return true }
+    var text = text
+    return text.withUTF8 { bytes in
+      hints.contains { hint in containsIgnoringASCIICase(bytes, Array(hint.lowercased().utf8)) }
+    }
+  }
+  private static func containsIgnoringASCIICase(_ haystack: UnsafeBufferPointer<UInt8>, _ needle: [UInt8]) -> Bool {
+    @inline(__always) func fold(_ byte: UInt8) -> UInt8 { (65...90).contains(byte) ? byte | 0x20 : byte }
+    guard let first = needle.first else { return true }
+    guard needle.count <= haystack.count else { return false }
+    var i = 0
+    let last = haystack.count - needle.count
+    while i <= last {
+      if fold(haystack[i]) == first {
+        var j = 1
+        while j < needle.count, fold(haystack[i + j]) == needle[j] { j += 1 }
+        if j == needle.count { return true }
+      }
+      i += 1
+    }
+    return false
   }
   private static func regex(_ pattern: String) -> NSRegularExpression {
     try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
   }
-  private static let secrets: [NSRegularExpression] = [
-    regex(#"-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"#),
-    regex(
+  private static let secrets: [Detector] = [
+    Detector(
+      regex: regex(#"-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"#),
+      hints: ["PRIVATE KEY"]),
+    Detector(regex: regex(
       #"(?<![A-Z0-9_])(?:sk-(?:proj-|svcacct-)?[A-Z0-9_-]{20,4096}|[sr]k_(?:live|test)_[A-Z0-9]{16,4096}|gh[pousr]_[A-Z0-9]{20,4096}|github_pat_[A-Z0-9_]{20,4096}|glpat-[A-Z0-9_-]{16,4096}|xox[baprs]-[A-Z0-9-]{10,4096}|(?:AKIA|ASIA)[A-Z0-9]{16}|AIza[A-Z0-9_-]{30,100})(?![A-Z0-9_-])"#
-    ),
-    regex(#"\bauthorization\s*:\s*(?:bearer|basic)\s+[^\s\"'<>]{4,4096}"#),
-    regex(
+    )),
+    Detector(
+      regex: regex(#"\bauthorization\s*:\s*(?:bearer|basic)\s+[^\s\"'<>]{4,4096}"#),
+      hints: ["authorization"]),
+    Detector(regex: regex(
       #"\b(?:password|passwd|pwd|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|secret[_-]?key|private[_-]?key|aws[_-]?secret[_-]?access[_-]?key|token|mật\s*khẩu|mat\s*khau)\b[\"']?\s*[:=]\s*[\"']?[^\s\"'&,;<>]{1,4096}"#
-    ),
-    regex(
+    ), hints: ["pass", "pwd", "key", "token", "secret", "kh"]),
+    Detector(regex: regex(
       #"(?<![A-Z0-9_-])eyJ[A-Z0-9_-]{8,4096}\.[A-Z0-9_-]{8,4096}\.[A-Z0-9_-]{8,4096}(?![A-Z0-9_-])"#
-    ),
-    regex(#"https?://[^/@\s:]{1,256}:[^/@\s]{1,4096}@"#),
+    ), hints: ["eyJ"]),
+    Detector(regex: regex(#"https?://[^/@\s:]{1,256}:[^/@\s]{1,4096}@"#), hints: ["@"]),
   ]
   private static let personal: [Rule] = [
     Rule(
       regex: regex(
         #"(?<![A-Z0-9._%+-])[A-Z0-9][A-Z0-9._%+-]{0,63}@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)*\.[A-Z]{2,24}(?![A-Z0-9-])"#
-      ), label: "Email",
+      ), hints: ["@"], label: "Email",
       replacement: { value in
         let parts = value.split(separator: "@", maxSplits: 1)
         guard parts.count == 2 else { return nil }
@@ -62,10 +98,17 @@ enum SensitiveContent {
       }),
   ]
   static func containsSecret(_ text: String) -> Bool {
+    var text = text
+    // Pasteboard strings are often bridged; convert once instead of once per hint scan.
+    text.makeContiguousUTF8()
     let range = NSRange(text.startIndex..., in: text)
-    return secrets.contains { $0.firstMatch(in: text, range: range) != nil }
+    return secrets.contains {
+      mayMatch(text, hints: $0.hints) && $0.regex.firstMatch(in: text, range: range) != nil
+    }
   }
   static func inspect(_ text: String) -> SensitiveAssessment {
+    var text = text
+    text.makeContiguousUTF8()
     if containsSecret(text) {
       return SensitiveAssessment(
         maskedText: SensitiveAssessment.secretPlaceholder, labels: ["Mật khẩu / khóa bí mật"],
@@ -75,7 +118,7 @@ enum SensitiveContent {
     let range = NSRange(location: 0, length: source.length)
     var matches: [(range: NSRange, value: String, label: String)] = []
     var overflow = false
-    for rule in personal {
+    for rule in personal where mayMatch(text, hints: rule.hints) {
       var count = 0
       rule.regex.enumerateMatches(in: text, range: range) { result, _, stop in
         guard let result, let replacement = rule.replacement(source.substring(with: result.range))
