@@ -54,10 +54,34 @@ struct SearchField: NSViewRepresentable {
     }
   }
 }
+extension Clip {
+  static let previewCharacterLimit = 2_000
+  /// Enough text to fill a card. Laying out megabytes of text made each card slow to render.
+  var previewText: String {
+    text.utf8.count <= Self.previewCharacterLimit
+      ? text : String(text.prefix(Self.previewCharacterLimit))
+  }
+}
 final class PreviewCache {
   static let shared = PreviewCache()
   let images = NSCache<NSString, NSImage>()
   let icons = NSCache<NSString, NSImage>()
+  private final class CharacterCount {
+    let bytes: Int
+    let value: Int
+    init(bytes: Int, value: Int) { self.bytes = bytes; self.value = value }
+  }
+  private let characterCounts = NSCache<NSString, CharacterCount>()
+  /// Counting characters walks the whole string, so large texts are counted once.
+  func characterCount(_ clip: Clip) -> Int {
+    let bytes = clip.text.utf8.count
+    guard bytes > 16 * 1024 else { return clip.text.count }
+    let key = clip.id.uuidString as NSString
+    if let cached = characterCounts.object(forKey: key), cached.bytes == bytes { return cached.value }
+    let value = clip.text.count
+    characterCounts.setObject(CharacterCount(bytes: bytes, value: value), forKey: key)
+    return value
+  }
   private init() {
     images.totalCostLimit = 32 * 1024 * 1024
     icons.countLimit = 100
@@ -156,7 +180,7 @@ struct ClipCard: View {
       if !clip.title.isEmpty {
         Text(clip.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
       }
-      Text(clip.text).font(.system(size: 13)).lineLimit(5).frame(
+      Text(clip.previewText).font(.system(size: 13)).lineLimit(5).frame(
         maxWidth: .infinity, alignment: .leading)
       Spacer(minLength: 0)
       Text(protectionLabel).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
@@ -187,7 +211,7 @@ struct ClipCard: View {
         }
         VStack(alignment: .leading, spacing: 4) {
           Text(clip.displayTitle).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-          Text(clip.text).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+          Text(clip.previewText).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(
           Color(nsColor: .controlBackgroundColor))
       }
@@ -214,9 +238,9 @@ struct ClipCard: View {
         if !clip.title.isEmpty {
           Text(clip.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
         }
-        Text(clip.text).font(.system(size: 13)).lineSpacing(3).lineLimit(8).frame(
+        Text(clip.previewText).font(.system(size: 13)).lineSpacing(3).lineLimit(8).frame(
           maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        Text("\(clip.text.count) characters").font(.system(size: 10)).foregroundStyle(.tertiary)
+        Text("\(PreviewCache.shared.characterCount(clip)) characters").font(.system(size: 10)).foregroundStyle(.tertiary)
           .frame(maxWidth: .infinity)
       }.padding(13)
     }

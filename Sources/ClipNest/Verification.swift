@@ -64,6 +64,19 @@ import SwiftUI
   s.query = "Qui"
   check(s.filtered.map(\.text) == ["Quiet", "Quick"],
     "New items are searched even while a query is being narrowed")
+  let hugeText = String(repeating: "Xin chào 👋 clipboard\n", count: 60_000)
+  let hugeClip = Clip(source: "Test", kind: "Text", text: hugeText)
+  check(
+    hugeClip.previewText.count == Clip.previewCharacterLimit && hugeText.hasPrefix(hugeClip.previewText)
+      && Clip(source: "Test", kind: "Text", text: "short").previewText == "short",
+    "Card previews lay out only the beginning of very large text")
+  var resized = hugeClip
+  resized.text += "more"
+  check(
+    PreviewCache.shared.characterCount(hugeClip) == hugeText.count
+      && PreviewCache.shared.characterCount(hugeClip) == hugeText.count
+      && PreviewCache.shared.characterCount(resized) == hugeText.count + 4,
+    "Large text character counts are cached and refreshed when the text changes")
   s.clips = originalClips
   s.query = ""
   capture("https://example.com/docs")
