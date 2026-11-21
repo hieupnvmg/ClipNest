@@ -132,7 +132,15 @@ final class Store: ObservableObject {
       if imageTextRecognition { recognizeImageText() }
     }
   }
-  private var recognizingImages: Set<UUID> = []
+  private var recognizingImages: Set<UUID> = [] {
+    didSet { if imageTextPending != recognizingImages.count { imageTextPending = recognizingImages.count } }
+  }
+  /// Images waiting for or undergoing recognition.
+  @Published private(set) var imageTextPending = 0
+  /// True once recognition has succeeded on this macOS build and model revision.
+  @Published private(set) var imageTextModelReady = false
+  @Published private(set) var imageTextModelChecking = false
+  @Published private(set) var imageTextModelError: String?
   @Published var glassVariant: GlassVariant {
     didSet { defaults.set(glassVariant.rawValue, forKey: "glassVariant") }
   }
@@ -221,6 +229,8 @@ final class Store: ObservableObject {
     backgroundOpacity = AppearancePreferences.load(from: defaults)
     glassVariant = GlassVariant.load(from: defaults)
     imageTextRecognition = defaults.object(forKey: "imageTextRecognition") as? Bool ?? true
+    imageTextModelReady =
+      defaults.string(forKey: "imageTextModelIdentity") == ImageTextRecognizer.modelIdentity
     shortcut = KeyboardShortcut.load(from: defaults)
     self.defaults = defaults
     self.pasteboard = pasteboard
@@ -567,6 +577,7 @@ final class Store: ObservableObject {
     ImageTextRecognizer.shared.recognize(read: imageReader(item)) { [weak self] text in
       guard let self else { return }
       self.recognizingImages.remove(id)
+      if text != nil { self.markImageTextModelReady() }
       // Drop results for images that were removed, replaced or cleared meanwhile.
       guard let text, self.imageTextRecognition,
         self.clips.contains(where: { $0.id == id && $0.imageReference?.digest == digest })
@@ -575,6 +586,29 @@ final class Store: ObservableObject {
       self.imageText[id] = recognized
       let database = self.database
       self.writerQueue.async { try? database?.saveImageText(recognized, for: id) }
+    }
+  }
+  private func markImageTextModelReady() {
+    imageTextModelError = nil
+    guard !imageTextModelReady else { return }
+    imageTextModelReady = true
+    defaults.set(ImageTextRecognizer.modelIdentity, forKey: "imageTextModelIdentity")
+  }
+  /// Runs one small recognition so macOS prepares the model now instead of on the next
+  /// screenshot, and confirms that recognition works on this Mac.
+  func prepareImageTextModel() {
+    guard !imageTextModelChecking else { return }
+    imageTextModelChecking = true
+    imageTextModelError = nil
+    let sample = ImageTextRecognizer.sampleImage()
+    ImageTextRecognizer.shared.recognize(read: { sample }) { [weak self] text in
+      guard let self else { return }
+      self.imageTextModelChecking = false
+      if text?.localizedCaseInsensitiveContains("ClipNest") == true {
+        self.markImageTextModelReady()
+      } else {
+        self.imageTextModelError = "Text recognition did not respond as expected. Try again later."
+      }
     }
   }
   private func retaining(_ snapshot: [Clip]) -> [Clip] {
