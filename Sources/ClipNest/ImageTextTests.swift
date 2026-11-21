@@ -45,6 +45,10 @@ import AppKit
 
   let store = Store(folder: folder, defaults: defaults, pasteboard: pb, monitoring: false)
   check(store.imageTextRecognition, "Image text recognition is enabled by default")
+  check(!store.imageTextModelReady && store.imageTextPending == 0,
+    "A new install reports the text model as not yet prepared on this macOS")
+  check(ImageTextRecognizer.languageNames == ["Vietnamese", "English"],
+    "Settings lists the recognition languages this Mac supports")
   func copyImage(_ data: Data) {
     pb.clearContents()
     pb.setData(data, forType: .png)
@@ -52,7 +56,11 @@ import AppKit
   }
   copyImage(screenshot(["Deploy failed", "Xin chào ClipNest"]))
   let shot = store.clips[0]
+  check(store.imageTextPending == 1, "Queued images are reported as in progress")
   await waitUntil { !store.recognizedText(for: shot).isEmpty }
+  check(store.imageTextModelReady && store.imageTextPending == 0
+      && defaults.string(forKey: "imageTextModelIdentity") == ImageTextRecognizer.modelIdentity,
+    "A successful recognition marks the model ready for this macOS build")
   store.query = "deploy FAILED"
   check(store.filtered.map(\.id) == [shot.id], "Search finds a screenshot by the words in it")
   store.query = ""
@@ -95,5 +103,17 @@ import AppKit
   reopened.clearHistory()
   let afterClear = try! HistoryDatabase(url: folder.appendingPathComponent("history.sqlite3")).imageTexts()
   check(afterClear.isEmpty && reopened.imageText.isEmpty, "Clear removes all recognized text")
+  let prepareSuite = "ClipNest.ocr-prepare.\(UUID())"
+  let prepareDefaults = UserDefaults(suiteName: prepareSuite)!
+  defer { prepareDefaults.removePersistentDomain(forName: prepareSuite) }
+  prepareDefaults.set("macOS 1.0 · revision 0", forKey: "imageTextModelIdentity")
+  let fresh = Store(folder: folder.appendingPathComponent("prepare"), defaults: prepareDefaults,
+    pasteboard: pb, monitoring: false)
+  check(!fresh.imageTextModelReady, "A macOS update or new model revision needs preparing again")
+  fresh.prepareImageTextModel()
+  check(fresh.imageTextModelChecking, "Prepare Now shows progress while it runs")
+  await waitUntil { !fresh.imageTextModelChecking }
+  check(fresh.imageTextModelReady && fresh.imageTextModelError == nil,
+    "Prepare Now verifies recognition and marks the model ready")
   return checks
 }

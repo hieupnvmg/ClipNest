@@ -37,6 +37,33 @@ final class ImageTextRecognizer {
     signal(SIGPIPE, SIG_IGN)
   }
 
+  /// Vision's text model ships with macOS, and macOS prepares it for this Mac the first
+  /// time it is used (about a minute), again after OS updates. There is no API to ask
+  /// whether that has happened, so ClipNest records the OS build and model revision of
+  /// its last successful recognition.
+  static var modelIdentity: String {
+    "\(ProcessInfo.processInfo.operatingSystemVersionString) · revision \(VNRecognizeTextRequest.currentRevision)"
+  }
+  /// Recognition languages ClipNest asks for that this Mac supports, in display form.
+  static let languageNames: [String] = {
+    let supported = (try? VNRecognizeTextRequest().supportedRecognitionLanguages()) ?? []
+    return [("vi-VT", "Vietnamese"), ("en-US", "English")]
+      .filter { supported.contains($0.0) }.map(\.1)
+  }()
+  /// A tiny synthetic screenshot used to prepare and verify the model on demand.
+  static func sampleImage() -> Data {
+    let size = NSSize(width: 640, height: 140)
+    let image = NSImage(size: size)
+    image.lockFocus()
+    NSColor.white.setFill()
+    NSRect(origin: .zero, size: size).fill()
+    ("ClipNest text check" as NSString).draw(
+      at: NSPoint(x: 30, y: 40),
+      withAttributes: [.font: NSFont.systemFont(ofSize: 48, weight: .medium), .foregroundColor: NSColor.black])
+    image.unlockFocus()
+    return NSBitmapImageRep(data: image.tiffRepresentation!)!.representation(using: .png, properties: [:])!
+  }
+
   /// True while a helper process is alive.
   var isHelperRunning: Bool { state.lock(); defer { state.unlock() }; return running }
 

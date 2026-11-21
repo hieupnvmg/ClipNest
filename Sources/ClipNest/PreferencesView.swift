@@ -293,16 +293,32 @@ struct PreferencesView: View {
     Section {
       Toggle("Recognize text in images", isOn: $store.imageTextRecognition)
       if store.imageTextRecognition {
+        LabeledContent("Text model") { imageTextModelStatus }
+        LabeledContent("Languages") {
+          Text(ImageTextRecognizer.languageNames.isEmpty
+            ? "Unavailable" : ImageTextRecognizer.languageNames.joined(separator: ", "))
+            .foregroundStyle(.secondary)
+        }
         LabeledContent("Images with text") {
-          Text("\(store.imageText.values.filter { !$0.text.isEmpty }.count) of \(store.clips.filter { $0.kind == "Image" }.count)")
-            .monospacedDigit().foregroundStyle(.secondary)
+          HStack(spacing: 8) {
+            if store.imageTextPending > 0 {
+              ProgressView().controlSize(.small)
+              Text("\(store.imageTextPending) in progress ·").foregroundStyle(.secondary)
+            }
+            Text("\(store.imageText.values.filter { !$0.text.isEmpty }.count) of \(store.clips.filter { $0.kind == "Image" }.count)")
+              .monospacedDigit().foregroundStyle(.secondary)
+          }
+        }
+        if let error = store.imageTextModelError {
+          Label(error, systemImage: "exclamationmark.triangle.fill")
+            .font(.caption).foregroundStyle(.orange)
         }
       }
     } header: {
       Text("Images")
     } footer: {
       SettingsFootnote(
-        "Uses Apple’s Vision on this Mac, nothing is uploaded. Search finds screenshots by the words in them, and images that show passwords or tokens are masked.")
+        "Uses Apple’s Vision on this Mac; nothing is uploaded and nothing is downloaded. The model is part of macOS: the first recognition after installing or updating macOS prepares it, which can take about a minute. Search then finds screenshots by their words, and images that show passwords or tokens are masked.")
     }
     Section {
       TextField("Bundle IDs", text: $store.excluded, prompt: Text("com.example.app, …"), axis: .vertical)
@@ -313,6 +329,30 @@ struct PreferencesView: View {
     } footer: {
       SettingsFootnote(
         "Bundle IDs separated by commas, e.g. com.apple.keychainaccess. Password and transient clipboard markers are always ignored.")
+    }
+  }
+
+  @ViewBuilder private var imageTextModelStatus: some View {
+    let preparing = store.imageTextModelChecking || (!store.imageTextModelReady && store.imageTextPending > 0)
+    if ImageTextRecognizer.languageNames.isEmpty {
+      Label("Unavailable on this Mac", systemImage: "xmark.circle.fill").foregroundStyle(.red)
+    } else if preparing {
+      HStack(spacing: 8) {
+        ProgressView().controlSize(.small)
+        Text(store.imageTextModelReady ? "Checking…" : "Preparing… about a minute the first time")
+          .foregroundStyle(.secondary)
+      }
+    } else if store.imageTextModelReady {
+      HStack(spacing: 10) {
+        Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        Button("Check Again") { store.prepareImageTextModel() }
+      }
+    } else {
+      HStack(spacing: 10) {
+        Label("Not prepared on this macOS yet", systemImage: "clock.arrow.circlepath")
+          .foregroundStyle(.orange)
+        Button("Prepare Now") { store.prepareImageTextModel() }
+      }
     }
   }
 
