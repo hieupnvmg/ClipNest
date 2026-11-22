@@ -104,6 +104,24 @@ final class PreviewCache {
     icons.setObject(icon, forKey: bid as NSString)
     return icon
   }
+  private final class InsightEntry {
+    let text: String
+    let insight: ClipInsight
+    init(text: String, insight: ClipInsight) { self.text = text; self.insight = insight }
+  }
+  private let insights: NSCache<NSString, InsightEntry> = {
+    let cache = NSCache<NSString, InsightEntry>()
+    cache.countLimit = 300
+    return cache
+  }()
+  /// Parsed commands, recaps and available transforms for a text clip, cached per version.
+  func insight(_ clip: Clip) -> ClipInsight {
+    let key = clip.id.uuidString as NSString
+    if let entry = insights.object(forKey: key), entry.text == clip.text { return entry.insight }
+    let insight = ClipInsight(clip.text)
+    insights.setObject(InsightEntry(text: clip.text, insight: insight), forKey: key)
+    return insight
+  }
   /// Finder icons can hit the disk (or a network volume); look each path up once.
   func fileIcon(_ path: String) -> NSImage {
     let key = "file:\(path)" as NSString
@@ -254,6 +272,10 @@ struct ClipCard: View {
         if !clip.title.isEmpty {
           Text(clip.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
         }
+        let insight = PreviewCache.shared.insight(clip)
+        if !insight.isEmpty {
+          ClipInsightView(insight: insight, productionKeywords: store.productionKeywords)
+        }
         Text(clip.previewText).font(.system(size: 13)).lineSpacing(3).lineLimit(8).frame(
           maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         Text("\(PreviewCache.shared.characterCount(clip)) characters").font(.system(size: 10)).foregroundStyle(.tertiary)
@@ -346,6 +368,7 @@ struct ClipboardContent: View {
     .onChange(of: store.settings) { value in if value { store.hideRevealedSensitiveItems() } }
     .sheet(isPresented: $store.settings) { preferences }
     .sheet(item: $store.editing) { item in editor(item) }
+    .sheet(item: $store.pendingPaste) { review in PasteReviewSheet(review: review, store: store) }
     .modifier(PikabinPresentation(sharing: store.pikabin))
     .modifier(PasswordGeneratorPresentation(model: store.passwordGenerator, store: store))
   }
@@ -490,6 +513,21 @@ struct ClipboardContent: View {
     Button("Copy Only") {
       store.copyOnly(item)
     }
+    if ["Text", "Link", "Color"].contains(item.kind), !store.isMasked(item) {
+      let transforms = PreviewCache.shared.insight(item).transforms
+      if !transforms.isEmpty {
+        Menu("Transform") {
+          ForEach(transforms) { transform in
+            Button(transform.title) { store.applyTransform(transform, to: item) }
+            if transform == .ansibleDryRun || transform == .ansibleRetry || transform == .ansibleError
+              || transform == .jsonToYAML || transform == .jwtDecode || transform == .timestamp
+            {
+              Divider()
+            }
+          }
+        }
+      }
+    }
     if item.kind == "Image", !store.recognizedText(for: item).isEmpty {
       Button("Copy Text from Image") { store.copyRecognizedText(item) }
         .disabled(store.isMasked(item))
@@ -540,5 +578,111 @@ struct ClipboardContent: View {
         Button("Save") { store.saveEdit() }.keyboardShortcut(.defaultAction)
       }
     }.padding(24).frame(width: 500)
+  }
+}
+
+/// A compact summary above the text of Ansible commands and output.
+struct ClipInsightView: View {
+  let insight: ClipInsight
+  let productionKeywords: [String]
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      if let command = insight.command {
+        HStack(spacing: 4) {
+          Image(systemName: "terminal")
+          Text(command.playbooks.first.map { ($0 as NSString).lastPathComponent } ?? command.hostPattern ?? command.tool)
+            .fontWeight(.semibold).lineLimit(1)
+        }
+        let facts = [
+          command.inventories.first.map { "inv \(($0 as NSString).lastPathComponent == "hosts" || ($0 as NSString).lastPathComponent.hasPrefix("hosts.") ? $0 : ($0 as NSString).lastPathComponent)" },
+          command.limit.map { "limit \($0)" }, command.tags.map { "tags \($0)" },
+          command.check ? "check" : nil, command.become ? "become" : nil,
+        ].compactMap { $0 }
+        if !facts.isEmpty {
+          Text(facts.joined(separator: " · ")).foregroundStyle(.secondary).lineLimit(2)
+        }
+        let issues = command.issues(productionKeywords: productionKeywords)
+        if !issues.isEmpty {
+          Label(issues.map(\.short).joined(separator: " · "), systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange).lineLimit(2)
+        }
+      }
+      if !insight.recap.isEmpty {
+        let total = insight.recap.reduce(into: (ok: 0, changed: 0, failed: 0, unreachable: 0)) {
+          $0.ok += $1.ok; $0.changed += $1.changed; $0.failed += $1.failed; $0.unreachable += $1.unreachable
+        }
+        Text("\(insight.recap.count) hosts  ").fontWeight(.semibold)
+          + Text("ok \(total.ok)  ").foregroundColor(.green)
+          + Text("changed \(total.changed)").foregroundColor(.orange)
+          + Text(total.failed > 0 ? "  failed \(total.failed)" : "").foregroundColor(.red)
+          + Text(total.unreachable > 0 ? "  unreachable \(total.unreachable)" : "").foregroundColor(.red)
+        let retry = insight.recap.filter(\.needsRetry).map(\.host)
+        if !retry.isEmpty {
+          Text("Retry: " + retry.joined(separator: ", ")).foregroundStyle(.red).lineLimit(2)
+        }
+      }
+      if !insight.failures.isEmpty {
+        Label(
+          "\(insight.failures.count) failed: " + insight.failures.map(\.host).joined(separator: ", "),
+          systemImage: "xmark.octagon.fill"
+        ).foregroundStyle(.red).lineLimit(2)
+      }
+    }
+    .font(.system(size: 10.5))
+    .padding(7)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+  }
+}
+
+/// Confirms a paste into a terminal that would run several lines or a risky command.
+struct PasteReviewSheet: View {
+  let review: PendingPaste
+  @ObservedObject var store: Store
+  private var appName: String {
+    NSWorkspace.shared.urlForApplication(withBundleIdentifier: review.target)
+      .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
+      ?? "Terminal"
+  }
+  var body: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      HStack(spacing: 10) {
+        Image(systemName: review.warnings.isEmpty ? "text.alignleft" : "exclamationmark.triangle.fill")
+          .font(.system(size: 22)).foregroundStyle(review.warnings.isEmpty ? Color.accentColor : .orange)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(review.warnings.isEmpty ? "Paste \(review.lines) lines into \(appName)?" : "Check before running in \(appName)")
+            .font(.headline)
+          Text(review.lines > 1 ? "Each line runs as soon as it is pasted." : "The command will be pasted without pressing Return.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+      }
+      ForEach(review.warnings, id: \.self) { warning in
+        Label(warning, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+          .font(.system(size: 12))
+      }
+      ScrollView {
+        Text(review.display ?? review.text).font(.system(size: 11.5, design: .monospaced))
+          .textSelection(.enabled)
+          .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+      }
+      .frame(maxHeight: 160)
+      .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+      HStack {
+        Button("Cancel", role: .cancel) { store.pendingPaste = nil }.keyboardShortcut(.cancelAction)
+        Spacer()
+        if let dryRun = review.dryRun {
+          Button("Paste Anyway") { store.pasteText(review.text) }
+          Button("Paste with --check --diff") { store.pasteText(dryRun) }
+            .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+        } else if review.warnings.isEmpty {
+          Button("Paste") { store.pasteText(review.text) }
+            .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+        } else {
+          Button("Paste Anyway") { store.pasteText(review.text) }
+        }
+      }
+    }
+    .padding(20)
+    .frame(width: 500)
   }
 }

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum PreferencesPane: String, CaseIterable, Identifiable {
-  case general, appearance, clipboard, sync, privacy, updates
+  case general, appearance, clipboard, developer, sync, privacy, updates
   var id: String { rawValue }
   var title: String {
     switch self {
@@ -10,6 +10,7 @@ enum PreferencesPane: String, CaseIterable, Identifiable {
     case .appearance: return "Appearance"
     case .clipboard: return "Clipboard"
     case .sync: return "iCloud Sync"
+    case .developer: return "Developer"
     case .privacy: return "Privacy"
     case .updates: return "Updates"
     }
@@ -20,6 +21,7 @@ enum PreferencesPane: String, CaseIterable, Identifiable {
     case .appearance: return "paintbrush.fill"
     case .clipboard: return "doc.on.clipboard.fill"
     case .sync: return "icloud.fill"
+    case .developer: return "terminal.fill"
     case .privacy: return "hand.raised.fill"
     case .updates: return "arrow.down.circle.fill"
     }
@@ -30,6 +32,7 @@ enum PreferencesPane: String, CaseIterable, Identifiable {
     case .appearance: return .indigo
     case .clipboard: return .orange
     case .sync: return .cyan
+    case .developer: return Color(white: 0.25)
     case .privacy: return .blue
     case .updates: return .green
     }
@@ -178,6 +181,7 @@ struct PreferencesView: View {
     case .appearance: appearance
     case .clipboard: clipboard
     case .sync: SyncSettings(store: store)
+    case .developer: developer
     case .privacy: privacy
     case .updates: UpdateSettings()
     }
@@ -357,6 +361,35 @@ struct PreferencesView: View {
           .foregroundStyle(.orange)
         Button("Prepare Now") { store.prepareImageTextModel() }
       }
+    }
+  }
+
+  @ViewBuilder private var developer: some View {
+    Section {
+      Toggle("Review pastes into terminals", isOn: $store.safeTerminalPaste)
+    } header: {
+      Text("Terminal")
+    } footer: {
+      SettingsFootnote(
+        "When you paste into Terminal, iTerm2, Ghostty, Warp, kitty, Alacritty, WezTerm or Hyper, ClipNest pastes plain text without the trailing newline, so nothing runs on its own. It asks first when the text has several lines or an Ansible command looks risky.")
+    }
+    Section {
+      Toggle("Collect Ansible commands", isOn: $store.collectAnsibleCommands)
+      LabeledContent("Production names") {
+        TextField("Production names", text: $store.productionNames, prompt: Text("prod, production, prd"))
+          .labelsHidden().multilineTextAlignment(.trailing).frame(width: 220)
+      }
+    } header: {
+      Text("Ansible")
+    } footer: {
+      SettingsFootnote(
+        "Copied ansible and ansible-playbook commands gather on the Ansible board, showing their inventory, limit and tags. ClipNest warns when an inventory, limit or host pattern contains one of these words and the command has no --limit or --check, or passes a secret with -e. Copied PLAY RECAP output offers a retry command for failed hosts, and FAILED! output can be turned into a readable error. Ansible Vault blocks are masked.")
+    }
+    Section {
+      Text("Right-click a text item and choose Transform to format, minify or convert JSON to YAML, decode a JWT, Base64 or URL, convert a Unix timestamp, remove terminal colors, join lines, quote for the shell or hash with SHA-256. The result is copied and added to history; nothing leaves your Mac.")
+        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    } header: {
+      Text("Transforms")
     }
   }
 

@@ -62,12 +62,15 @@ enum SensitiveContent {
       regex: regex(#"\bauthorization\s*:\s*(?:bearer|basic)\s+[^\s\"'<>]{4,4096}"#),
       hints: ["authorization"]),
     Detector(regex: regex(
-      #"\b(?:password|passwd|pwd|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|secret[_-]?key|private[_-]?key|aws[_-]?secret[_-]?access[_-]?key|token|mật\s*khẩu|mat\s*khau)\b[\"']?\s*[:=]\s*[\"']?[^\s\"'&,;<>]{1,4096}"#
+      // Not preceded by a letter or digit, so prefixed names like db_password match too.
+      #"(?<![a-z0-9])(?:vault[_-]?pass(?:word)?|ansible_(?:become_|ssh_|sudo_)?pass(?:word)?|password|passwd|pwd|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|secret[_-]?key|private[_-]?key|aws[_-]?secret[_-]?access[_-]?key|token|mật\s*khẩu|mat\s*khau)\b[\"']?\s*[:=]\s*[\"']?[^\s\"'&,;<>]{1,4096}"#
     ), hints: ["pass", "pwd", "key", "token", "secret", "kh"]),
     Detector(regex: regex(
       #"(?<![A-Z0-9_-])eyJ[A-Z0-9_-]{8,4096}\.[A-Z0-9_-]{8,4096}\.[A-Z0-9_-]{8,4096}(?![A-Z0-9_-])"#
     ), hints: ["eyJ"]),
     Detector(regex: regex(#"https?://[^/@\s:]{1,256}:[^/@\s]{1,4096}@"#), hints: ["@"]),
+    // Ansible Vault ciphertext: protected, but still a secret worth keeping off screen.
+    Detector(regex: regex(#"\$ANSIBLE_VAULT;\d+\.\d+;"#), hints: ["$ANSIBLE_VAULT"]),
   ]
   private static let personal: [Rule] = [
     Rule(
