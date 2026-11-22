@@ -109,6 +109,8 @@ final class SyncEngine {
   private let local: URL
   private var key: SymmetricKey?
   private var state = LocalState()
+  /// Last bytes written to sync-state.json; unchanged passes skip the disk write.
+  private var savedState: Data?
   private let now: () -> Date
 
   /// - Parameters:
@@ -325,8 +327,11 @@ final class SyncEngine {
     try JSONDecoder().decode([String].self, from: unseal(data, aad: Data("boards".utf8)))
   }
   private func saveState() throws {
+    let data = try JSONEncoder().encode(state)
+    guard data != savedState else { return }
     try FileManager.default.createDirectory(at: local, withIntermediateDirectories: true)
-    try JSONEncoder().encode(state).write(to: stateURL, options: .atomic)
+    try data.write(to: stateURL, options: .atomic)
+    savedState = data
   }
 }
 

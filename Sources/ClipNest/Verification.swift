@@ -722,6 +722,11 @@ import SwiftUI
   optimized.retention = 1
   let expiredKey = expired.id.uuidString as NSString
   let retainedKey = retained.id.uuidString as NSString
+  // Thumbnails from earlier checks can land asynchronously and push this one past the
+  // cache's cost limit; lift it while checking that trim() itself evicts only what expired.
+  let thumbnailLimit = PreviewCache.shared.images.totalCostLimit
+  PreviewCache.shared.images.totalCostLimit = 0
+  defer { PreviewCache.shared.images.totalCostLimit = thumbnailLimit }
   PreviewCache.shared.images.setObject(NSImage(size: NSSize(width: 1, height: 1)), forKey: expiredKey)
   PreviewCache.shared.images.setObject(NSImage(size: NSSize(width: 1, height: 1)), forKey: retainedKey)
   var publications = 0
@@ -1038,5 +1043,43 @@ func runPerformanceChecks() {
   }
   let perCapture = (ProcessInfo.processInfo.systemUptime - captureStart) * 1000 / 20
   print(String(format: "Save after a new copy (1000+ items): %.2f ms each", perCapture))
+  func time(_ runs: Int = 1, _ body: () -> Void) -> Double {
+    let start = ProcessInfo.processInfo.systemUptime
+    for _ in 0..<runs { body() }
+    return (ProcessInfo.processInfo.systemUptime - start) * 1000 / Double(runs)
+  }
+  // iCloud Sync: runs every 60 s and 3 s after local changes.
+  let syncRoot = folder.appendingPathComponent("sync")
+  let cloud = syncRoot.appendingPathComponent("iCloud Drive/ClipNest Sync")
+  try? FileManager.default.createDirectory(at: cloud.deletingLastPathComponent(), withIntermediateDirectories: true)
+  let engine = SyncEngine(cloud: cloud, local: syncRoot.appendingPathComponent("local"))
+  let keyTime = time { try! engine.create(passphrase: "benchmark passphrase") }
+  let pinned = (0..<300).map { index in
+    SyncCandidate(
+      id: UUID(),
+      clip: SyncClip(date: Date(), source: "Bench", kind: "Text",
+        text: "Pinned snippet \(index) " + String(repeating: "x", count: 200), title: "", board: "Work"),
+      imageDigest: nil)
+  }
+  let firstSync = time { _ = try! engine.sync(local: pinned, boards: ["Work"]) }
+  let idleSync = time(10) { _ = try! engine.sync(local: pinned, boards: ["Work"]) }
+  print(String(format: "Sync passphrase key derivation (once per setup): %.0f ms", keyTime))
+  print(String(format: "Sync first upload, 300 pinned items: %.0f ms", firstSync))
+  print(String(format: "Sync unchanged pass, 300 pinned items: %.2f ms", idleSync))
+  // Card info (Ansible, recap, transforms): once per clip version, then cached.
+  let recapText = "PLAY RECAP ****\n" + (0..<50).map { "web-\($0)  : ok=12 changed=3 unreachable=0 failed=\($0 % 7 == 0 ? 1 : 0) skipped=1" }.joined(separator: "\n")
+  let jsonText = "{" + (0..<400).map { "\"key\($0)\":{\"value\":\($0),\"name\":\"item \($0)\"}" }.joined(separator: ",") + "}"
+  let insightSamples: [(String, String)] = [
+    ("Ansible command", "ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -b"),
+    ("PLAY RECAP, 50 hosts", recapText),
+    ("JSON, \(jsonText.utf8.count / 1024) KB", jsonText),
+    ("Plain text, 2 KB", String(repeating: "Lorem ipsum dolor sit amet. ", count: 73)),
+    ("Text, 500 KB", String(repeating: "log line with nothing special in it\n", count: 14_000)),
+  ]
+  for (name, text) in insightSamples {
+    print(String(format: "Card info for %@: %.3f ms", name, time(20) { _ = ClipInsight(text) }))
+  }
+  print(String(format: "Ansible command check on copy: %.3f ms",
+    time(200) { _ = AnsibleCommand.parse("ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -b") }))
   withExtendedLifetime(observation) {}
 }

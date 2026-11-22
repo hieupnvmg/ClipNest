@@ -1,5 +1,22 @@
 import CryptoKit
+import Darwin
 import Foundation
+
+extension String {
+  /// Exact byte search (memmem). `contains` on a large String goes through Foundation and
+  /// costs milliseconds per call; these checks run while cards are drawn.
+  func containsBytes(_ needle: String) -> Bool {
+    var haystack = self
+    var needle = needle
+    return haystack.withUTF8 { h in
+      needle.withUTF8 { n in
+        guard n.count > 0 else { return true }
+        guard h.count >= n.count, let hBase = h.baseAddress, let nBase = n.baseAddress else { return false }
+        return memmem(hBase, h.count, nBase, n.count) != nil
+      }
+    }
+  }
+}
 
 /// JSON that keeps object keys in their original order (Foundation's parser does not),
 /// so formatting and YAML conversion read like the input.
@@ -321,25 +338,32 @@ enum DevTransform: String, CaseIterable, Identifiable {
   static let maxBytes = 512 * 1024
 
   static func available(for text: String) -> [DevTransform] {
-    guard !text.isEmpty, text.utf8.count <= maxBytes else { return [] }
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let bytes = text.utf8.count
+    guard bytes > 0, bytes <= maxBytes else { return [] }
     var result: [DevTransform] = []
     if AnsibleOutput.hasFailure(text) { result.append(.ansibleError) }
     if AnsibleOutput.hasRecap(text) { result.append(.ansibleRetry) }
-    if trimmed.contains("ansible-playbook"), let command = AnsibleCommand.parse(trimmed),
+    if bytes <= 8192, text.containsBytes("ansible-playbook"), let command = AnsibleCommand.parse(text),
       command.tool == "ansible-playbook", !command.check || !command.diff
     {
       result.append(.ansibleDryRun)
     }
-    if let first = trimmed.first, first == "{" || first == "[" {
+    if let first = text.first(where: { !$0.isWhitespace }), first == "{" || first == "[" {
       result += [.jsonPretty, .jsonMinify, .jsonToYAML]
     }
-    if trimmed.utf8.count < 16_384, JWT.looksLike(trimmed) { result.append(.jwtDecode) }
-    if Self.looksLikeBase64(trimmed) { result.append(.base64Decode) }
-    if trimmed.contains("%"), trimmed.removingPercentEncoding != trimmed { result.append(.urlDecode) }
-    if Self.timestampValue(trimmed) != nil { result.append(.timestamp) }
-    if text.contains("\u{1B}[") { result.append(.stripANSI) }
-    if trimmed.contains("\n") { result.append(.joinLines) }
+    // Token, timestamp and percent-encoding checks need the trimmed text; they only make
+    // sense for short clips, so large ones skip the copy.
+    if bytes <= 16_384 {
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if JWT.looksLike(trimmed) { result.append(.jwtDecode) }
+      if trimmed.containsBytes("%"), trimmed.removingPercentEncoding != trimmed { result.append(.urlDecode) }
+      if Self.timestampValue(trimmed) != nil { result.append(.timestamp) }
+    }
+    if Self.looksLikeBase64(text) { result.append(.base64Decode) }
+    if text.containsBytes("\u{1B}[") { result.append(.stripANSI) }
+    if text.trimmingCharacters(in: .newlines).containsBytes("\n") || text.containsBytes("\r\n") {
+      result.append(.joinLines)
+    }
     result += [.shellQuote, .jsonEscape, .base64Encode, .urlEncode, .sha256]
     return result
   }
@@ -405,7 +429,8 @@ enum DevTransform: String, CaseIterable, Identifiable {
       with: "", options: .regularExpression)
   }
   static func looksLikeBase64(_ text: String) -> Bool {
-    guard text.count >= 8, text.utf8.count <= maxBytes, !text.contains(" ") else { return false }
+    let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard text.utf8.count >= 8, text.utf8.count <= maxBytes, !text.containsBytes(" ") else { return false }
     let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=-_\n\r")
     guard text.unicodeScalars.allSatisfy(allowed.contains) else { return false }
     // Plain words and numbers are valid Base64 too; require some sign of encoding.

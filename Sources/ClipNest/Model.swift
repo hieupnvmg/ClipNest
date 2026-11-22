@@ -862,7 +862,7 @@ final class Store: ObservableObject {
     } else if item.board == nil, item.isIPAddress {
       item.board = Self.ipBoard
     } else if item.board == nil, collectAnsibleCommands, item.kind == "Text",
-      item.text.contains("ansible"), AnsibleCommand.parse(item.text) != nil
+      item.text.utf8.count <= 8192, item.text.containsBytes("ansible"), AnsibleCommand.parse(item.text) != nil
     {
       if !boards.contains(Self.ansibleBoard) { boards.append(Self.ansibleBoard) }
       item.board = Self.ansibleBoard
