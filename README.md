@@ -34,11 +34,33 @@
 
 <br>
 
+<p align="center">
+  <a href="docs/promo.mp4"><img src="docs/promo.webp" width="100%" alt="ClipNest in 25 seconds: open with Shift-Command-V, search as you type, secrets masked, a review sheet before production Ansible commands, encrypted iCloud sync, and a database faster than one frame"></a>
+</p>
+<p align="center">
+  <sub>🎬 &nbsp;<a href="docs/promo.mp4"><b>Watch in full quality</b></a> (MP4, 25 s) &nbsp;·&nbsp; made with <a href="https://www.remotion.dev">Remotion</a> from real app screenshots — source in <a href="promo"><code>promo/</code></a></sub>
+</p>
+
+<br>
+
+<table>
+<tr>
+<td width="62%">
+
 ![ClipNest demo: the clipboard panel opens, filters as you type, and pastes the selected item](docs/demo.gif)
 
-<p align="center">
-  <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>V</kbd> &nbsp;open &nbsp;→&nbsp; type to search &nbsp;→&nbsp; <kbd>↩</kbd> paste
-</p>
+</td>
+<td width="38%" valign="middle">
+
+### Three keys, then you’re done
+
+<kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>V</kbd> &nbsp;open<br>
+<kbd>a</kbd> <kbd>b</kbd> <kbd>c</kbd> &nbsp;type to search<br>
+<kbd>↩</kbd> &nbsp;paste into the app you were using
+
+</td>
+</tr>
+</table>
 
 <br>
 
