@@ -32,6 +32,12 @@ final class UpdateFlow: ObservableObject {
   var permissionReply: ((SUUpdatePermissionResponse) -> Void)?
   var retryTermination: (() -> Void)?
   var close: () -> Void = {}
+  /// Quits ClipNest so the installer can replace it. Injected by tests.
+  var quitApp: () -> Void = { NSApp.terminate(nil) }
+  /// The user chose to install in this window, so quitting now is expected.
+  private(set) var installRequested = false
+  /// Shown only if ClipNest is still running a few seconds after installing began.
+  @Published var retryAvailable = false
 
   var downloadFraction: Double? {
     expected > 0 ? min(Double(received) / Double(expected), 1) : nil
@@ -40,7 +46,7 @@ final class UpdateFlow: ObservableObject {
     let reply = choiceReply
     choiceReply = nil
     // Installing continues in the same window (download, then install progress).
-    if choice != .install { close() }
+    if choice == .install { installRequested = true } else { close() }
     reply?(choice)
   }
   func cancel() {
@@ -61,7 +67,11 @@ final class UpdateFlow: ObservableObject {
     close()
     reply?(SUUpdatePermissionResponse(automaticUpdateChecks: automaticChecks, sendSystemProfile: false))
   }
-  func retryTerminating() { retryTermination?() }
+  /// Asks Sparkle to send its quit request again, and quits directly as well.
+  func retryTerminating() {
+    retryTermination?()
+    quitApp()
+  }
   /// Closing the window is the same as the safest button for the current step.
   func windowClosed() {
     if permissionReply != nil { answerPermission(automaticChecks: false) }
@@ -75,6 +85,8 @@ final class UpdateFlow: ObservableObject {
     acknowledgement = nil
     permissionReply = nil
     retryTermination = nil
+    installRequested = false
+    retryAvailable = false
     phase = .idle
   }
 }
@@ -260,8 +272,26 @@ final class ClipNestUpdateDriver: NSObject, SPUUserDriver, NSWindowDelegate {
   ) {
     flow.applicationTerminated = applicationTerminated
     flow.retryTermination = retryTerminatingApplication
+    flow.retryAvailable = false
     flow.phase = .installing
+    guard !applicationTerminated else { return }
+    // Sparkle's installer asks ClipNest to quit, but a menu bar app can miss that request.
+    // The user already chose to install, so quit directly: Sparkle installs as soon as the
+    // app exits and relaunches it, because the install reply was given while it ran.
+    if flow.installRequested {
+      DispatchQueue.main.asyncAfter(deadline: .now() + quitDelay) { [weak self] in
+        guard self?.flow.phase == .installing else { return }
+        self?.flow.quitApp()
+      }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) { [weak self] in
+      guard let flow = self?.flow, flow.phase == .installing, !flow.applicationTerminated else { return }
+      flow.retryAvailable = true
+    }
   }
+  /// Lets the window show "Installing…" before ClipNest quits.
+  var quitDelay: TimeInterval = 0.6
+  var retryDelay: TimeInterval = 6
   func showUpdateInstalledAndRelaunched(_ relaunched: Bool, acknowledgement: @escaping () -> Void) {
     flow.reset()
     closeWindow()
@@ -331,8 +361,10 @@ struct UpdateView: View {
       return "Downloads are verified with ClipNest’s signing key before installation."
     case .ready: return "ClipNest will quit, install \(flow.version) and open again."
     case .installing:
-      return flow.applicationTerminated
-        ? "This only takes a moment." : "Waiting for ClipNest to quit…"
+      if flow.applicationTerminated { return "This only takes a moment." }
+      return flow.retryAvailable
+        ? "ClipNest has not quit yet. Quit it to finish installing; it reopens on its own."
+        : "ClipNest will close and reopen in a moment."
     case .failed(let message): return message
     case .idle, .checking: return "Contacting GitHub."
     }
@@ -437,8 +469,9 @@ struct UpdateView: View {
           .buttonStyle(.borderedProminent)
       case .installing:
         Spacer()
-        if !flow.applicationTerminated {
-          Button("Try Again") { flow.retryTerminating() }
+        if !flow.applicationTerminated && flow.retryAvailable {
+          Button("Quit and Install") { flow.retryTerminating() }
+            .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
         }
       case .upToDate, .failed:
         Spacer()
