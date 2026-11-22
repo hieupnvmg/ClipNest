@@ -194,5 +194,25 @@ import AppKit
   store.safeTerminalPaste = false
   check(store.terminalReview(for: Clip(source: "Test", kind: "Text", text: "a\nb")) == nil,
     "Terminal paste review can be turned off")
+  // Typed search text must start after the magnifier, with or without a bezel.
+  for bezeled in [false, true] {
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 60), styleMask: [.titled],
+      backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    let field = ClipboardSearchField(frame: NSRect(x: 20, y: 15, width: 220, height: 24))
+    field.bezelStyle = .roundedBezel
+    field.isBezeled = bezeled
+    field.drawsBackground = bezeled
+    window.contentView?.addSubview(field)
+    window.makeFirstResponder(field)
+    field.currentEditor()?.insertText("curl")
+    let cell = field.cell as! NSSearchFieldCell
+    let magnifier = cell.searchButtonRect(forBounds: field.bounds)
+    let editor = field.currentEditor()!
+    let typed = field.convert(editor.superview!.frame, from: editor.superview!.superview)
+    check(typed.minX >= magnifier.maxX - 2 && field.stringValue == "curl",
+      "Search text starts after the magnifier \(bezeled ? "with" : "without") a bezel")
+    window.close()
+  }
   return checks
 }
