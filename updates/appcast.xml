@@ -6,6 +6,21 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.23</title>
+            <pubDate>Sun, 22 Nov 2026 07:51:55 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>36</sparkle:version>
+            <sparkle:shortVersionString>0.5.23</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Developer tools and search polish
+
+- Added clipboard text transforms, safe terminal paste, and Ansible support.
+- Fixed search text overlapping the magnifier in Liquid Glass.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.23/ClipNest-0.5.23-Apple-Silicon.dmg" length="3524794" type="application/octet-stream" sparkle:edSignature="EZkJCMU4eg0y0y2Z/wrgCUibf5/5w0hOpHMzKT+XWIyWI6dKAIy66pU5UwryVBnfucPwK9OBp1rSICBvfErfAA=="/>
+        </item>
+        <item>
             <title>0.5.22</title>
             <pubDate>Sun, 22 Nov 2026 07:08:07 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -34,23 +49,9 @@ Image text recognition uses the CPU to avoid a stall when Apple Vision compiles 
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.21/ClipNest-0.5.21-Apple-Silicon.dmg" length="3271473" type="application/octet-stream" sparkle:edSignature="r6u7H+AEFmkPdZARX5vuxlgcY8Cr1qs7fZLpX7htklhsKsaqqMrtKSRD1bTuIpk7CjFBtw6HiOGciQ4CcY09BQ=="/>
         </item>
-        <item>
-            <title>0.5.20</title>
-            <pubDate>Sat, 21 Nov 2026 22:40:54 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>33</sparkle:version>
-            <sparkle:shortVersionString>0.5.20</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Find text in clipboard images
-
-ClipNest can recognize text in clipboard images on your Mac so you can find those images by searching for the text they contain.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.20/ClipNest-0.5.20-Apple-Silicon.dmg" length="3271284" type="application/octet-stream" sparkle:edSignature="M68+9bYP8UnAjjs/mpMz5ROqYPYz5l3Wl807s2PkeCMM15UekV+hgysOVjzne0Hh+c0AdG/shhxKa+MRVfkBAA=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: f7+O3WdamMOeM442RNiHIC/CGDfYpnB8XpN+EjM30rrNI6yykODzrQu3Jm9XI5PSjYhUfv0GxahJhQyxtSAUAw==
-length: 3461
+edSignature: /jmYcB51djsI6hlmM/azehRYjVARvgRaZHzSUwDYDvrtR8s3pN1QfnxTuj3Em0LYAdgeOvg9o6Ch3BIXz83EAA==
+length: 3476
 -->
