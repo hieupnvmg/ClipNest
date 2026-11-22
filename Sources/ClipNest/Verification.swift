@@ -762,6 +762,7 @@ import SwiftUI
   lifecycleWindow.close()
   checks += await runSensitiveContentTests()
   checks += await runImageTextTests()
+  checks += await runSyncTests()
   checks += await runImageStorageTests()
   checks += await runPikabinTests()
   checks += runPasswordTests()
