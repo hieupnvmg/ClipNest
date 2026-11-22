@@ -132,6 +132,20 @@ final class Store: ObservableObject {
       if imageTextRecognition { recognizeImageText() }
     }
   }
+  // MARK: iCloud Drive sync
+  let syncEngine: SyncEngine
+  private let syncQueue = DispatchQueue(label: "local.clipnest.sync", qos: .utility)
+  private var syncTimer: Timer?
+  private var pendingSync: DispatchWorkItem?
+  private var syncRunning = false
+  private var syncAgain = false
+  @Published private(set) var syncStatus = SyncStatus()
+  @Published var syncIncludeSensitive: Bool {
+    didSet {
+      defaults.set(syncIncludeSensitive, forKey: "syncIncludeSensitive")
+      scheduleSync()
+    }
+  }
   private var recognizingImages: Set<UUID> = [] {
     didSet { if imageTextPending != recognizingImages.count { imageTextPending = recognizingImages.count } }
   }
@@ -216,7 +230,7 @@ final class Store: ObservableObject {
   var url: URL { folder.appendingPathComponent("history.sqlite3") }
   init(
     folder: URL? = nil, defaults: UserDefaults = .standard, pasteboard: NSPasteboard = .general,
-    monitoring: Bool = true, asynchronousSaves: Bool? = nil
+    monitoring: Bool = true, asynchronousSaves: Bool? = nil, syncFolder: URL? = nil
   ) {
     self.folder =
       folder
@@ -241,6 +255,10 @@ final class Store: ObservableObject {
       defaults.string(forKey: "excluded")
       ?? "com.1password.1password,com.agilebits.onepassword7,com.apple.keychainaccess"
     retention = defaults.object(forKey: "retention") as? Int ?? 1000
+    syncIncludeSensitive = defaults.bool(forKey: "syncIncludeSensitive")
+    syncEngine = SyncEngine(
+      cloud: syncFolder ?? SyncEngine.iCloudDriveFolder.appendingPathComponent("ClipNest Sync"),
+      local: self.folder)
     do {
       let database = try HistoryDatabase(url: url)
       self.database = database
@@ -253,6 +271,7 @@ final class Store: ObservableObject {
     }
     selected = clips.first?.id
     refreshStorageUsage()
+    refreshSyncStatus()
     if monitoring {
       timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
         self?.capture()
@@ -260,6 +279,12 @@ final class Store: ObservableObject {
       }
       timer?.tolerance = 0.1
       prewarmSensitiveAssessments()
+      // Pick up changes from other Macs regularly; local changes sync shortly after saving.
+      syncTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        self?.syncNow()
+      }
+      syncTimer?.tolerance = 10
+      DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.syncNow() }
       recognizeImageText()
     }
   }
@@ -419,6 +444,7 @@ final class Store: ObservableObject {
     }
     pendingSave = work
     writerQueue.asyncAfter(deadline: .now() + 0.15, execute: work)
+    scheduleSync()
   }
   func flushPendingSave() {
     guard !archiveUnreadable else { return }
@@ -587,6 +613,124 @@ final class Store: ObservableObject {
       let database = self.database
       self.writerQueue.async { try? database?.saveImageText(recognized, for: id) }
     }
+  }
+  /// Pinned clips that belong in sync. Automatic boards (Useful Links, IP Addresses) fill
+  /// themselves from every copy, so only boards the user made are synced.
+  func isSyncable(_ item: Clip) -> Bool {
+    guard let board = item.board, !Self.automaticBoards.contains(board) else { return false }
+    // Unchecked large items report as sensitive until inspected, so they wait a pass.
+    return syncIncludeSensitive || protection(for: item).isSensitive == false
+  }
+  func refreshSyncStatus() {
+    syncStatus.configured = syncEngine.isConfigured
+    syncStatus.vaultExists = syncEngine.vaultExists
+    syncStatus.cloudAvailable = syncEngine.cloudAvailable
+  }
+  private func scheduleSync() {
+    guard syncEngine.isConfigured else { return }
+    pendingSync?.cancel()
+    let work = DispatchWorkItem { [weak self] in self?.syncNow() }
+    pendingSync = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
+  }
+  /// One sync pass: imports other Macs' changes, then uploads this Mac's.
+  func syncNow(completion: (() -> Void)? = nil) {
+    guard syncEngine.isConfigured, !archiveUnreadable else { refreshSyncStatus(); completion?(); return }
+    guard !syncRunning else { syncAgain = true; completion?(); return }
+    syncRunning = true
+    syncStatus.busy = true
+    let candidates = clips.filter(isSyncable).map { item -> SyncCandidate in
+      SyncCandidate(
+        id: item.id,
+        clip: SyncClip(
+          date: item.date, source: item.source, kind: item.kind, text: item.text,
+          title: item.title, board: item.board ?? "", bundleID: item.bundleID,
+          rtf: item.kind == "Image" || item.kind == "Files" ? nil : item.data, html: item.html),
+        imageDigest: item.imageReference?.digest,
+        loadImage: item.kind == "Image" ? imageReader(item) : nil)
+    }
+    let boards = self.boards.filter { !Self.automaticBoards.contains($0) }
+    let engine = syncEngine
+    syncQueue.async { [weak self] in
+      let result = Result { try engine.sync(local: candidates, boards: boards) }
+      DispatchQueue.main.async {
+        guard let self else { return }
+        self.syncRunning = false
+        self.syncStatus.busy = false
+        switch result {
+        case .success(let outcome):
+          self.applySync(outcome)
+          self.syncStatus.lastSync = Date()
+          self.syncStatus.synced = outcome.syncedCount
+          self.syncStatus.error = nil
+        case .failure(let failure):
+          self.syncStatus.error = failure.localizedDescription
+        }
+        self.refreshSyncStatus()
+        completion?()
+        if self.syncAgain {
+          self.syncAgain = false
+          self.scheduleSync()
+        }
+      }
+    }
+  }
+  private func applySync(_ outcome: SyncOutcome) {
+    var changed = false
+    for name in outcome.boards where !boards.contains(name) {
+      boards.append(name)
+      changed = true
+    }
+    guard !outcome.changes.isEmpty else {
+      if changed { save() }
+      return
+    }
+    var next = clips
+    for change in outcome.changes {
+      switch change {
+      case .unpin(let id):
+        if let index = next.firstIndex(where: { $0.id == id }) { next[index].board = nil }
+      case .upsert(let id, let synced):
+        var clip = Clip(
+          id: id, date: synced.date, source: synced.source, kind: synced.kind, text: synced.text,
+          data: synced.kind == "Image" ? synced.image : synced.rtf, board: synced.board,
+          title: synced.title, bundleID: synced.bundleID, html: synced.html)
+        if let image = synced.image { clip.imageReference = ImageReference(data: image) }
+        if !boards.contains(synced.board) { boards.append(synced.board) }
+        if let index = next.firstIndex(where: { $0.id == id }) {
+          forgetCachedItem(id)
+          next.remove(at: index)
+        }
+        next.insert(clip, at: next.firstIndex { $0.date < clip.date } ?? next.endIndex)
+        if clip.kind == "Image" { scheduleRecognition(clip) }
+      }
+    }
+    clips = next
+    save()
+  }
+  func setUpSync(passphrase: String, join: Bool, completion: @escaping (Error?) -> Void) {
+    let engine = syncEngine
+    syncStatus.busy = true
+    syncQueue.async {
+      let result = Result { join ? try engine.join(passphrase: passphrase) : try engine.create(passphrase: passphrase) }
+      DispatchQueue.main.async { [weak self] in
+        self?.syncStatus.busy = false
+        self?.refreshSyncStatus()
+        switch result {
+        case .success:
+          completion(nil)
+          self?.syncNow()
+        case .failure(let error): completion(error)
+        }
+      }
+    }
+  }
+  func leaveSync() {
+    pendingSync?.cancel()
+    let engine = syncEngine
+    syncQueue.sync { engine.leave() }
+    syncStatus = SyncStatus()
+    refreshSyncStatus()
   }
   private func markImageTextModelReady() {
     imageTextModelError = nil

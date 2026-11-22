@@ -2,13 +2,14 @@ import AppKit
 import SwiftUI
 
 enum PreferencesPane: String, CaseIterable, Identifiable {
-  case general, appearance, clipboard, privacy, updates
+  case general, appearance, clipboard, sync, privacy, updates
   var id: String { rawValue }
   var title: String {
     switch self {
     case .general: return "General"
     case .appearance: return "Appearance"
     case .clipboard: return "Clipboard"
+    case .sync: return "iCloud Sync"
     case .privacy: return "Privacy"
     case .updates: return "Updates"
     }
@@ -18,6 +19,7 @@ enum PreferencesPane: String, CaseIterable, Identifiable {
     case .general: return "gearshape.fill"
     case .appearance: return "paintbrush.fill"
     case .clipboard: return "doc.on.clipboard.fill"
+    case .sync: return "icloud.fill"
     case .privacy: return "hand.raised.fill"
     case .updates: return "arrow.down.circle.fill"
     }
@@ -27,6 +29,7 @@ enum PreferencesPane: String, CaseIterable, Identifiable {
     case .general: return .gray
     case .appearance: return .indigo
     case .clipboard: return .orange
+    case .sync: return .cyan
     case .privacy: return .blue
     case .updates: return .green
     }
@@ -174,6 +177,7 @@ struct PreferencesView: View {
     case .general: general
     case .appearance: appearance
     case .clipboard: clipboard
+    case .sync: SyncSettings(store: store)
     case .privacy: privacy
     case .updates: UpdateSettings()
     }
@@ -375,6 +379,110 @@ struct PreferencesView: View {
       Label("Text is sent to pikab.in only when you choose Push to pikab.in.", systemImage: "paperplane")
     } header: {
       Text("Your data")
+    }
+  }
+}
+
+/// Typed passphrases live here, not in Store, and are cleared once used.
+final class SyncSetupForm: ObservableObject {
+  @Published var passphrase = ""
+  @Published var confirmation = ""
+  @Published var error: String?
+}
+
+struct SyncSettings: View {
+  @ObservedObject var store: Store
+  @StateObject private var form = SyncSetupForm()
+  private var status: SyncStatus { store.syncStatus }
+
+  var body: some View {
+    if !status.cloudAvailable {
+      Section {
+        Label("iCloud Drive is off on this Mac", systemImage: "exclamationmark.icloud")
+          .foregroundStyle(.orange)
+      } footer: {
+        SettingsFootnote("Turn on iCloud Drive in System Settings → Apple Account → iCloud, then come back here.")
+      }
+    } else if status.configured {
+      configured
+    } else {
+      setup
+    }
+  }
+
+  @ViewBuilder private var configured: some View {
+    Section {
+      LabeledContent("Status") {
+        HStack(spacing: 8) {
+          if status.busy { ProgressView().controlSize(.small) }
+          if let error = status.error {
+            Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+              .lineLimit(2)
+          } else if let last = status.lastSync {
+            Label("Synced \(last.formatted(.relative(presentation: .named)))",
+              systemImage: "checkmark.icloud.fill").foregroundStyle(.green)
+          } else {
+            Text("Waiting for first sync…").foregroundStyle(.secondary)
+          }
+        }
+      }
+      LabeledContent("Pinned items in sync") {
+        Text("\(status.synced)").monospacedDigit().foregroundStyle(.secondary)
+      }
+      Toggle("Include sensitive items", isOn: $store.syncIncludeSensitive)
+      HStack {
+        Button("Stop Syncing on This Mac", role: .destructive) { store.leaveSync() }
+        Spacer()
+        Button("Sync Now") { store.syncNow() }.disabled(status.busy)
+      }
+    } header: {
+      Text("Pinboards")
+    } footer: {
+      SettingsFootnote(
+        "Items on your own pinboards sync through the “ClipNest Sync” folder in iCloud Drive, encrypted with your sync passphrase before they leave this Mac. Useful Links and IP Addresses fill themselves from every copy and stay on each Mac. Sensitive items stay local unless you include them. Changes from other Macs arrive within about a minute.")
+    }
+  }
+
+  @ViewBuilder private var setup: some View {
+    let joining = status.vaultExists
+    Section {
+      SecureField("Sync passphrase", text: $form.passphrase)
+      if !joining {
+        SecureField("Confirm passphrase", text: $form.confirmation)
+      }
+      if let error = form.error {
+        Label(error, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
+      }
+      HStack {
+        Spacer()
+        if status.busy { ProgressView().controlSize(.small) }
+        Button(joining ? "Join Sync" : "Start Syncing") { submit(joining: joining) }
+          .buttonStyle(.borderedProminent)
+          .disabled(status.busy || form.passphrase.isEmpty)
+      }
+    } header: {
+      Text(joining ? "Join from this Mac" : "Sync pinboards with iCloud Drive")
+    } footer: {
+      SettingsFootnote(
+        joining
+          ? "Another Mac already syncs ClipNest. Enter the same sync passphrase you chose there."
+          : "Choose a passphrase you will also enter on your other Macs. It encrypts everything ClipNest puts in iCloud Drive, so Apple cannot read it. It cannot be recovered: if you forget it, delete the “ClipNest Sync” folder in iCloud Drive and start again.")
+    }
+  }
+
+  private func submit(joining: Bool) {
+    form.error = nil
+    if !joining && form.passphrase != form.confirmation {
+      form.error = "The passphrases do not match."
+      return
+    }
+    store.setUpSync(passphrase: form.passphrase, join: joining) { error in
+      if let error {
+        form.error = error.localizedDescription
+      } else {
+        form.passphrase = ""
+        form.confirmation = ""
+      }
     }
   }
 }
