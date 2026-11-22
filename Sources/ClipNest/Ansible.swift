@@ -286,9 +286,9 @@ enum AnsibleOutput {
     }
   }
 
-  static func hasRecap(_ text: String) -> Bool { text.contains("PLAY RECAP") }
+  static func hasRecap(_ text: String) -> Bool { text.containsBytes("PLAY RECAP") }
   static func hasFailure(_ text: String) -> Bool {
-    text.contains("FAILED! =>") || text.contains("UNREACHABLE! =>")
+    text.containsBytes("FAILED! =>") || text.containsBytes("UNREACHABLE! =>")
   }
 
   static func recap(in text: String) -> [RecapEntry] {
@@ -370,7 +370,7 @@ final class ClipInsight {
   init(_ text: String) {
     transforms = DevTransform.available(for: text)
     let small = text.utf8.count <= DevTransform.maxBytes
-    command = small && text.contains("ansible") ? AnsibleCommand.parse(text) : nil
+    command = text.utf8.count <= 8192 && text.containsBytes("ansible") ? AnsibleCommand.parse(text) : nil
     recap = small && AnsibleOutput.hasRecap(text) ? AnsibleOutput.recap(in: text) : []
     failures = small && AnsibleOutput.hasFailure(text) ? AnsibleOutput.failures(in: text) : []
   }

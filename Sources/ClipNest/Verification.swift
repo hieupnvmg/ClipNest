@@ -722,6 +722,11 @@ import SwiftUI
   optimized.retention = 1
   let expiredKey = expired.id.uuidString as NSString
   let retainedKey = retained.id.uuidString as NSString
+  // Thumbnails from earlier checks can land asynchronously and push this one past the
+  // cache's cost limit; lift it while checking that trim() itself evicts only what expired.
+  let thumbnailLimit = PreviewCache.shared.images.totalCostLimit
+  PreviewCache.shared.images.totalCostLimit = 0
+  defer { PreviewCache.shared.images.totalCostLimit = thumbnailLimit }
   PreviewCache.shared.images.setObject(NSImage(size: NSSize(width: 1, height: 1)), forKey: expiredKey)
   PreviewCache.shared.images.setObject(NSImage(size: NSSize(width: 1, height: 1)), forKey: retainedKey)
   var publications = 0
@@ -787,6 +792,7 @@ import SwiftUI
   checks += await runSensitiveContentTests()
   checks += await runImageTextTests()
   checks += await runSyncTests()
+  checks += await runDatabaseBenchmarkTests()
   checks += await runDevToolsTests()
   checks += await runImageStorageTests()
   checks += await runPikabinTests()
@@ -904,6 +910,25 @@ import SwiftUI
       store.setUpSync(passphrase: "preview passphrase", join: false) { _ in done.resume() }
     }
     await withCheckedContinuation { done in store.syncNow { done.resume() } }
+  }
+  if CommandLine.arguments.contains("--benchmark-preview") {
+    // A history about the size of a real one, so the numbers mean something.
+    let png = NSBitmapImageRep(
+      bitmapDataPlanes: nil, pixelsWide: 1200, pixelsHigh: 800, bitsPerSample: 8, samplesPerPixel: 4,
+      hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+      .representation(using: .png, properties: [:])!
+    for index in 0..<1200 {
+      store.clips.append(Clip(source: "Terminal", kind: "Text",
+        text: "kubectl -n app-\(index) get pods -o wide --sort-by=.status.startTime # \(UUID())"))
+    }
+    for index in 0..<150 {
+      var image = Clip(source: "Screenshot", kind: "Image", text: "1200 × 800 #\(index)", data: png)
+      image.imageReference = ImageReference(data: png)
+      store.clips.append(image)
+    }
+    store.save()
+    store.flushPendingSave()
+    await withCheckedContinuation { done in store.runDatabaseBenchmark { done.resume() } }
   }
   if CommandLine.arguments.contains("--search-preview") { store.searchVisible = true }
   if let i = CommandLine.arguments.firstIndex(of: "--preview-query"), i + 1 < CommandLine.arguments.count {
@@ -1038,5 +1063,62 @@ func runPerformanceChecks() {
   }
   let perCapture = (ProcessInfo.processInfo.systemUptime - captureStart) * 1000 / 20
   print(String(format: "Save after a new copy (1000+ items): %.2f ms each", perCapture))
+  func time(_ runs: Int = 1, _ body: () -> Void) -> Double {
+    let start = ProcessInfo.processInfo.systemUptime
+    for _ in 0..<runs { body() }
+    return (ProcessInfo.processInfo.systemUptime - start) * 1000 / Double(runs)
+  }
+  // iCloud Sync: runs every 60 s and 3 s after local changes.
+  let syncRoot = folder.appendingPathComponent("sync")
+  let cloud = syncRoot.appendingPathComponent("iCloud Drive/ClipNest Sync")
+  try? FileManager.default.createDirectory(at: cloud.deletingLastPathComponent(), withIntermediateDirectories: true)
+  let engine = SyncEngine(cloud: cloud, local: syncRoot.appendingPathComponent("local"))
+  let keyTime = time { try! engine.create(passphrase: "benchmark passphrase") }
+  let pinned = (0..<300).map { index in
+    SyncCandidate(
+      id: UUID(),
+      clip: SyncClip(date: Date(), source: "Bench", kind: "Text",
+        text: "Pinned snippet \(index) " + String(repeating: "x", count: 200), title: "", board: "Work"),
+      imageDigest: nil)
+  }
+  let firstSync = time { _ = try! engine.sync(local: pinned, boards: ["Work"]) }
+  let idleSync = time(10) { _ = try! engine.sync(local: pinned, boards: ["Work"]) }
+  print(String(format: "Sync passphrase key derivation (once per setup): %.0f ms", keyTime))
+  print(String(format: "Sync first upload, 300 pinned items: %.0f ms", firstSync))
+  print(String(format: "Sync unchanged pass, 300 pinned items: %.2f ms", idleSync))
+  // Card info (Ansible, recap, transforms): once per clip version, then cached.
+  let recapText = "PLAY RECAP ****\n" + (0..<50).map { "web-\($0)  : ok=12 changed=3 unreachable=0 failed=\($0 % 7 == 0 ? 1 : 0) skipped=1" }.joined(separator: "\n")
+  let jsonText = "{" + (0..<400).map { "\"key\($0)\":{\"value\":\($0),\"name\":\"item \($0)\"}" }.joined(separator: ",") + "}"
+  let insightSamples: [(String, String)] = [
+    ("Ansible command", "ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -b"),
+    ("PLAY RECAP, 50 hosts", recapText),
+    ("JSON, \(jsonText.utf8.count / 1024) KB", jsonText),
+    ("Plain text, 2 KB", String(repeating: "Lorem ipsum dolor sit amet. ", count: 73)),
+    ("Text, 500 KB", String(repeating: "log line with nothing special in it\n", count: 14_000)),
+  ]
+  for (name, text) in insightSamples {
+    print(String(format: "Card info for %@: %.3f ms", name, time(20) { _ = ClipInsight(text) }))
+  }
+  print(String(format: "Ansible command check on copy: %.3f ms",
+    time(200) { _ = AnsibleCommand.parse("ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -b") }))
   withExtendedLifetime(observation) {}
+}
+
+/// Measures the history database on a copy of a real one: `--database-benchmark <folder>`,
+/// where the folder holds history.sqlite3 (and its -wal/-shm). The original is never opened.
+@MainActor func runDatabaseBenchmark(source: URL) {
+  let work = FileManager.default.temporaryDirectory.appendingPathComponent("ClipNest-db-bench-\(UUID())")
+  defer { try? FileManager.default.removeItem(at: work) }
+  try! DatabaseBenchmark.copyDatabase(from: source, to: work)
+  let result = try! DatabaseBenchmark.run(in: work)
+  print(String(format: "Clips: %d (%d images, %.1f MB) · database %.1f MB", result.clips, result.images,
+    Double(result.imageBytes) / 1_048_576, Double(result.databaseBytes) / 1_048_576))
+  for step in result.steps {
+    print(String(format: "[%@] %@: %.2f ms", step.moment.rawValue, step.title, step.milliseconds))
+  }
+  // The whole Store startup as the app does it, on the main thread.
+  let start = ProcessInfo.processInfo.systemUptime
+  _ = Store(folder: work, defaults: UserDefaults(suiteName: "ClipNest.db-bench.\(UUID())")!,
+    pasteboard: NSPasteboard.withUniqueName(), monitoring: false)
+  print(String(format: "Store startup on the main thread: %.1f ms", (ProcessInfo.processInfo.systemUptime - start) * 1000))
 }

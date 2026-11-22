@@ -234,6 +234,9 @@ final class Store: ObservableObject {
   @Published var toast: String?
   @Published var clearConfirmation = false
   @Published var storageBytes: Int64 = 0
+  @Published var databaseBenchmark: DatabaseBenchmark?
+  @Published var databaseBenchmarkRunning = false
+  @Published var databaseBenchmarkError: String?
   let folder: URL
   let defaults: UserDefaults
   let pasteboard: NSPasteboard
@@ -379,6 +382,31 @@ final class Store: ObservableObject {
     storageBytes == 0
       ? "0 KB" : ByteCountFormatter.string(fromByteCount: storageBytes, countStyle: .file)
   }
+  /// Measures the database on a temporary copy. The copy is taken on the writer queue,
+  /// so no save can change the files halfway; the timing runs on a background queue.
+  func runDatabaseBenchmark(completion: (() -> Void)? = nil) {
+    guard !databaseBenchmarkRunning else { return }
+    databaseBenchmarkRunning = true
+    databaseBenchmarkError = nil
+    let folder = self.folder
+    let work = FileManager.default.temporaryDirectory.appendingPathComponent("ClipNest-db-bench-\(UUID())")
+    writerQueue.async {
+      let copied = Result { try DatabaseBenchmark.copyDatabase(from: folder, to: work) }
+      DispatchQueue.global(qos: .userInitiated).async {
+        let result = copied.flatMap { Result { try DatabaseBenchmark.run(in: work) } }
+        try? FileManager.default.removeItem(at: work)
+        DispatchQueue.main.async {
+          self.databaseBenchmarkRunning = false
+          switch result {
+          case .success(let benchmark): self.databaseBenchmark = benchmark
+          case .failure(let error): self.databaseBenchmarkError = error.localizedDescription
+          }
+          completion?()
+        }
+      }
+    }
+  }
+
   func refreshStorageUsage() {
     let bytes = writerQueue.sync { database?.storageBytes ?? 0 }
     if storageBytes != bytes { storageBytes = bytes }
@@ -862,7 +890,7 @@ final class Store: ObservableObject {
     } else if item.board == nil, item.isIPAddress {
       item.board = Self.ipBoard
     } else if item.board == nil, collectAnsibleCommands, item.kind == "Text",
-      item.text.contains("ansible"), AnsibleCommand.parse(item.text) != nil
+      item.text.utf8.count <= 8192, item.text.containsBytes("ansible"), AnsibleCommand.parse(item.text) != nil
     {
       if !boards.contains(Self.ansibleBoard) { boards.append(Self.ansibleBoard) }
       item.board = Self.ansibleBoard
