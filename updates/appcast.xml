@@ -6,6 +6,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.24</title>
+            <pubDate>Sun, 22 Nov 2026 08:02:33 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>37</sparkle:version>
+            <sparkle:shortVersionString>0.5.24</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Smoother update installation
+
+After you choose to install an update, ClipNest quits automatically so installation can proceed.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.24/ClipNest-0.5.24-Apple-Silicon.dmg" length="3529806" type="application/octet-stream" sparkle:edSignature="imY6OikB8cf2fKprTHLWEN9XRLQLcyNCDvBY/c3gLmDwMYgYzLHgq30Q5xmh3ItSBDiKUylFN2u0sp2RERLADA=="/>
+        </item>
+        <item>
             <title>0.5.23</title>
             <pubDate>Sun, 22 Nov 2026 07:51:55 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -35,23 +49,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.22/ClipNest-0.5.22-Apple-Silicon.dmg" length="3397985" type="application/octet-stream" sparkle:edSignature="qDXxFe1X1im8eaTZwJnGkw9TIaT60lSrwV4PM4CdIqWRdiH7683zwWRl9KJf0rA86XjDuzRIxKimGPvyhOISBw=="/>
         </item>
-        <item>
-            <title>0.5.21</title>
-            <pubDate>Sat, 21 Nov 2026 22:44:34 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>34</sparkle:version>
-            <sparkle:shortVersionString>0.5.21</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Image text recognition fix
-
-Image text recognition uses the CPU to avoid a stall when Apple Vision compiles its model for the Neural Engine.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.21/ClipNest-0.5.21-Apple-Silicon.dmg" length="3271473" type="application/octet-stream" sparkle:edSignature="r6u7H+AEFmkPdZARX5vuxlgcY8Cr1qs7fZLpX7htklhsKsaqqMrtKSRD1bTuIpk7CjFBtw6HiOGciQ4CcY09BQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: /jmYcB51djsI6hlmM/azehRYjVARvgRaZHzSUwDYDvrtR8s3pN1QfnxTuj3Em0LYAdgeOvg9o6Ch3BIXz83EAA==
-length: 3476
+edSignature: oeaTDR68UGsQPd8lPFhthO2vwq6mOEj2da5ieEbj700p5WWTI+EklseRBccs2ffdaRzK5ETEyh/jJMF/SoqECw==
+length: 3462
 -->
