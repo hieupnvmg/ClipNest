@@ -1083,3 +1083,78 @@ func runPerformanceChecks() {
     time(200) { _ = AnsibleCommand.parse("ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -b") }))
   withExtendedLifetime(observation) {}
 }
+
+/// Measures the history database on a copy of a real one: `--database-benchmark <folder>`,
+/// where the folder holds history.sqlite3 (and its -wal/-shm). The original is never opened.
+@MainActor func runDatabaseBenchmark(source: URL) {
+  let work = FileManager.default.temporaryDirectory.appendingPathComponent("ClipNest-db-bench-\(UUID())")
+  defer { try? FileManager.default.removeItem(at: work) }
+  try! FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+  for suffix in ["", "-wal", "-shm"] {
+    let from = source.appendingPathComponent("history.sqlite3" + suffix)
+    if FileManager.default.fileExists(atPath: from.path) {
+      try! FileManager.default.copyItem(at: from, to: work.appendingPathComponent("history.sqlite3" + suffix))
+    }
+  }
+  func ms(_ body: () throws -> Void) -> Double {
+    let start = ProcessInfo.processInfo.systemUptime
+    try! body()
+    return (ProcessInfo.processInfo.systemUptime - start) * 1000
+  }
+  let url = work.appendingPathComponent("history.sqlite3")
+  var db: HistoryDatabase!
+  var clips: [Clip] = []
+  let open = ms { db = try HistoryDatabase(url: url) }
+  let load = ms { clips = try db.loadAndMigrate() }
+  let texts = ms { _ = try db.imageTexts() }
+  print(String(format: "Clips: %d (%d images) · database %.1f MB", clips.count,
+    clips.filter { $0.kind == "Image" }.count, Double(db.storageBytes) / 1_048_576))
+  print(String(format: "Open: %.1f ms · load history: %.1f ms · load image text: %.1f ms", open, load, texts))
+  let unchanged = ms { for _ in 0..<20 { try db.save(clips) } } / 20
+  print(String(format: "Save with nothing changed: %.2f ms", unchanged))
+  var history = clips
+  let newCopy = ms {
+    for index in 0..<20 {
+      history.insert(Clip(source: "Bench", kind: "Text", text: "New copy \(index) \(UUID())"), at: 0)
+      try db.save(history)
+    }
+  } / 20
+  print(String(format: "Save after a new text copy: %.2f ms", newCopy))
+  let recopy = ms {
+    for _ in 0..<20 {
+      let moved = history.remove(at: history.count / 2)
+      history.insert(moved, at: 0)
+      try db.save(history)
+    }
+  } / 20
+  print(String(format: "Save after copying an older item again (moves to top): %.2f ms", recopy))
+  let edit = ms {
+    for index in 0..<20 {
+      history[5].title = "Edited \(index)"
+      try db.save(history)
+    }
+  } / 20
+  print(String(format: "Save after renaming one item: %.2f ms", edit))
+  let png = NSBitmapImageRep(
+    bitmapDataPlanes: nil, pixelsWide: 1600, pixelsHigh: 1000, bitsPerSample: 8, samplesPerPixel: 4,
+    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    .representation(using: .png, properties: [:])!
+  let imageSave = ms {
+    var image = Clip(source: "Bench", kind: "Image", text: "1600 × 1000", data: png)
+    image.imageReference = ImageReference(data: png)
+    history.insert(image, at: 0)
+    try db.save(history)
+  }
+  print(String(format: "Save after a new screenshot (%d KB): %.2f ms", png.count / 1024, imageSave))
+  let images = clips.filter { $0.kind == "Image" }.sorted { ($0.imageReference?.byteCount ?? 0) > ($1.imageReference?.byteCount ?? 0) }
+  if let largest = images.first {
+    let read = ms { for _ in 0..<10 { _ = try db.imageData(for: largest.id, expected: largest.imageReference) } } / 10
+    print(String(format: "Read the largest image (%.1f MB): %.2f ms", Double(largest.imageReference?.byteCount ?? 0) / 1_048_576, read))
+  }
+  let checkpoint = ms { try db.checkpoint() }
+  print(String(format: "WAL checkpoint (on quit): %.1f ms", checkpoint))
+  // The whole Store startup as the app does it, on the main thread.
+  let store = ms { _ = Store(folder: work, defaults: UserDefaults(suiteName: "ClipNest.db-bench.\(UUID())")!,
+    pasteboard: NSPasteboard.withUniqueName(), monitoring: false) }
+  print(String(format: "Store startup on the main thread: %.1f ms", store))
+}

@@ -317,6 +317,10 @@ if let i = CommandLine.arguments.firstIndex(of: "--image-read-probe"), i + 1 < C
   runImageReadProbe(path: CommandLine.arguments[i + 1], eager: CommandLine.arguments.contains("--eager-images"), upgrading: CommandLine.arguments.contains("--upgrade-probe"))
   exit(0)
 }
+if let i = CommandLine.arguments.firstIndex(of: "--database-benchmark"), i + 1 < CommandLine.arguments.count {
+  MainActor.assumeIsolated { runDatabaseBenchmark(source: URL(fileURLWithPath: CommandLine.arguments[i + 1])) }
+  exit(0)
+}
 if CommandLine.arguments.contains("--performance-check") {
   runPerformanceChecks()
   exit(0)
