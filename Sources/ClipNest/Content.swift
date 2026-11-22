@@ -13,7 +13,31 @@ struct Glass: NSViewRepresentable {
   }
   func updateNSView(_ nsView: NSVisualEffectView, context: Context) { nsView.alphaValue = opacity }
 }
+/// Without a bezel (inside a Liquid Glass capsule) AppKit places the text editor at the
+/// field's left edge, so typed text ran over the magnifier. Edit within the same text
+/// area the cell draws in, between the search and cancel buttons.
+final class ClipboardSearchFieldCell: NSSearchFieldCell {
+  private func textArea(_ rect: NSRect) -> NSRect { isBezeled ? rect : searchTextRect(forBounds: rect) }
+  override func select(
+    withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?,
+    start selStart: Int, length selLength: Int
+  ) {
+    super.select(
+      withFrame: textArea(rect), in: controlView, editor: textObj, delegate: delegate,
+      start: selStart, length: selLength)
+  }
+  override func edit(
+    withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?,
+    event: NSEvent?
+  ) {
+    super.edit(withFrame: textArea(rect), in: controlView, editor: textObj, delegate: delegate, event: event)
+  }
+}
 final class ClipboardSearchField: NSSearchField {
+  override class var cellClass: AnyClass? {
+    get { ClipboardSearchFieldCell.self }
+    set { super.cellClass = newValue }
+  }
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     guard window != nil else { return }
