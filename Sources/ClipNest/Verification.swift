@@ -763,6 +763,7 @@ import SwiftUI
   checks += await runSensitiveContentTests()
   checks += await runImageTextTests()
   checks += await runSyncTests()
+  checks += await runDevToolsTests()
   checks += await runImageStorageTests()
   checks += await runPikabinTests()
   checks += runPasswordTests()
@@ -847,6 +848,27 @@ import SwiftUI
           title: "Mục cũ đã bảo vệ", bundleID: "com.apple.Terminal"),
       ], at: 0)
   }
+  if CommandLine.arguments.contains("--devtools-preview") {
+    // Synthetic Ansible clips for the developer-tools screenshots.
+    store.boards.append(Store.ansibleBoard)
+    store.clips.insert(contentsOf: [
+      Clip(source: "Terminal", kind: "Text",
+        text: "ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -b",
+        board: Store.ansibleBoard, bundleID: "com.apple.Terminal"),
+      Clip(source: "Terminal", kind: "Text", text: """
+        PLAY RECAP *********************************************************
+        web-01   : ok=12 changed=3 unreachable=0 failed=0 skipped=1
+        web-02   : ok=4  changed=0 unreachable=0 failed=1 skipped=0
+        db-01    : ok=0  changed=0 unreachable=1 failed=0 skipped=0
+        """, bundleID: "com.apple.Terminal"),
+      Clip(source: "Terminal", kind: "Text", text: """
+        TASK [nginx : Install packages] ****
+        fatal: [web-02]: FAILED! => {"changed": false, "msg": "non-zero return code", "rc": 100, "stderr_lines": ["E: Unable to locate package nginx"]}
+        """, bundleID: "com.apple.Terminal"),
+      Clip(source: "Grafana", kind: "Text", text: #"{"status":"firing","labels":{"alertname":"HighLatency","service":"api"},"startsAt":"2026-11-22T03:12:00Z"}"#,
+        bundleID: "com.google.Chrome"),
+    ], at: 0)
+  }
   store.selected = store.clips.first?.id
   if let i = CommandLine.arguments.firstIndex(of: "--preview-pane"), i + 1 < CommandLine.arguments.count,
     let pane = PreferencesPane(rawValue: CommandLine.arguments[i + 1])
@@ -879,7 +901,22 @@ import SwiftUI
   var width: CGFloat = passwordPreview ? 460 : (sharing != nil ? 480 : (settings ? 720 : 1440))
   var height: CGFloat = passwordPreview ? 350 : (sharing != nil ? 290 : (settings ? 540 : 346))
   let content: AnyView
-  if let updatePreview {
+  if CommandLine.arguments.contains("--paste-review-preview") {
+    let review = PendingPaste(
+      text: "ansible-playbook -i inventories/production/hosts.yml site.yml --tags nginx -e 'db_password=hunter2'",
+      target: "com.apple.Terminal", lines: 1,
+      warnings: [
+        "Runs on every host in a production inventory — no --limit.",
+        "Makes real changes in production — no --check.",
+        "A secret is passed with -e and will stay in shell history.",
+      ],
+      dryRun: "ansible-playbook … --check --diff")
+    content = AnyView(PasteReviewSheet(review: review, store: store))
+    let size = NSHostingView(rootView: PasteReviewSheet(review: review, store: store)).fittingSize
+    width = size.width
+    height = size.height
+  }
+  else if let updatePreview {
     // Synthetic update states for checking the update window layout.
     let flow = UpdateFlow()
     flow.version = "0.6.0"

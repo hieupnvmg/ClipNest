@@ -140,6 +140,29 @@ final class Store: ObservableObject {
   private var syncRunning = false
   private var syncAgain = false
   @Published private(set) var syncStatus = SyncStatus()
+  // MARK: Developer tools
+  /// Review pastes into terminal apps: no trailing newline, plain text, confirm risky ones.
+  @Published var safeTerminalPaste: Bool {
+    didSet { defaults.set(safeTerminalPaste, forKey: "safeTerminalPaste") }
+  }
+  @Published var collectAnsibleCommands: Bool {
+    didSet { defaults.set(collectAnsibleCommands, forKey: "collectAnsibleCommands") }
+  }
+  /// Words in inventory paths or host patterns that mean production, comma separated.
+  @Published var productionNames: String {
+    didSet { defaults.set(productionNames, forKey: "productionNames") }
+  }
+  var productionKeywords: [String] {
+    productionNames.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+  }
+  @Published var pendingPaste: PendingPaste?
+  /// The app ClipNest pastes into. Injected by tests.
+  var pasteTarget: () -> String? = { (NSApp.delegate as? AppDelegate)?.previous?.bundleIdentifier }
+  static let terminalApps: Set<String> = [
+    "com.apple.Terminal", "com.googlecode.iterm2", "com.mitchellh.ghostty", "dev.warp.Warp-Stable",
+    "dev.warp.Warp", "net.kovidgoyal.kitty", "org.alacritty", "io.alacritty", "co.zeit.hyper",
+    "com.github.wez.wezterm", "com.raphaelamorim.rio",
+  ]
   @Published var syncIncludeSensitive: Bool {
     didSet {
       defaults.set(syncIncludeSensitive, forKey: "syncIncludeSensitive")
@@ -250,12 +273,18 @@ final class Store: ObservableObject {
     self.pasteboard = pasteboard
     count = pasteboard.changeCount
     let savedBoards = defaults.stringArray(forKey: "boards") ?? ["Important Notes", "Work"]
-    boards = Self.automaticBoards + savedBoards.filter { !Self.automaticBoards.contains($0) }
+    // The Ansible board appears once the first Ansible command is copied.
+    boards = [Self.linksBoard, Self.ipBoard]
+      + (savedBoards.contains(Self.ansibleBoard) ? [Self.ansibleBoard] : [])
+      + savedBoards.filter { !Self.automaticBoards.contains($0) }
     excluded =
       defaults.string(forKey: "excluded")
       ?? "com.1password.1password,com.agilebits.onepassword7,com.apple.keychainaccess"
     retention = defaults.object(forKey: "retention") as? Int ?? 1000
     syncIncludeSensitive = defaults.bool(forKey: "syncIncludeSensitive")
+    safeTerminalPaste = defaults.object(forKey: "safeTerminalPaste") as? Bool ?? true
+    collectAnsibleCommands = defaults.object(forKey: "collectAnsibleCommands") as? Bool ?? true
+    productionNames = defaults.string(forKey: "productionNames") ?? "prod, production, prd"
     syncEngine = SyncEngine(
       cloud: syncFolder ?? SyncEngine.iCloudDriveFolder.appendingPathComponent("ClipNest Sync"),
       local: self.folder)
@@ -832,6 +861,11 @@ final class Store: ObservableObject {
       item.board = Self.linksBoard
     } else if item.board == nil, item.isIPAddress {
       item.board = Self.ipBoard
+    } else if item.board == nil, collectAnsibleCommands, item.kind == "Text",
+      item.text.contains("ansible"), AnsibleCommand.parse(item.text) != nil
+    {
+      if !boards.contains(Self.ansibleBoard) { boards.append(Self.ansibleBoard) }
+      item.board = Self.ansibleBoard
     }
     next.insert(item, at: 0)
     clips = retaining(next) // Publish one complete update, never intermediate lists.
@@ -892,9 +926,77 @@ final class Store: ObservableObject {
     prepareClipboardItem(item) { [weak self] ready in
       // A delayed image read must not paste into another app after this panel closes.
       if deferred, let app = NSApp.delegate as? AppDelegate, !app.panelPresentation.isVisible { return }
-      guard self?.writeClipboard(ready, plain: plain) == true else { return }
+      guard let self else { return }
+      if let review = self.terminalReview(for: ready) {
+        // Nothing risky: paste the cleaned text straight away.
+        if review.warnings.isEmpty && review.lines <= 1 { self.pasteText(review.text) } else { self.pendingPaste = review }
+        return
+      }
+      guard self.writeClipboard(ready, plain: plain) else { return }
       (NSApp.delegate as? AppDelegate)?.hideAndPaste()
     }
+  }
+  /// What a paste into a terminal would do, or nil when the target is not a terminal.
+  func terminalReview(for item: Clip) -> PendingPaste? {
+    guard safeTerminalPaste, ["Text", "Link", "Color"].contains(item.kind),
+      let target = pasteTarget(), Self.terminalApps.contains(target)
+    else { return nil }
+    // A trailing newline would run the command the moment it is pasted.
+    var text = item.text
+    while let last = text.last, last.isNewline { text.removeLast() }
+    // Lines joined with a trailing backslash are one command.
+    var lines = 0
+    var continued = false
+    for line in text.components(separatedBy: .newlines) {
+      if !continued { lines += 1 }
+      continued = line.hasSuffix("\\")
+    }
+    let command = AnsibleCommand.parse(text)
+    let warnings = command?.warnings(productionKeywords: productionKeywords) ?? []
+    var dryRun: String?
+    if let command, command.tool == "ansible-playbook", !warnings.isEmpty, !command.check {
+      dryRun = command.dryRun
+    }
+    var display: String?
+    if isMasked(item) { display = protection(for: item).clip.text }
+    return PendingPaste(
+      text: text, display: display, target: target, lines: lines, warnings: warnings, dryRun: dryRun)
+  }
+  /// Pastes reviewed text as plain text into the previous app.
+  func pasteText(_ text: String) {
+    pendingPaste = nil
+    guard writeClipboard(Clip(source: "ClipNest", kind: "Text", text: text), plain: true) else { return }
+    (NSApp.delegate as? AppDelegate)?.hideAndPaste()
+  }
+  /// Runs a transform on a clip and copies the result (it also joins history).
+  func applyTransform(_ transform: DevTransform, to item: Clip) {
+    guard !isMasked(item) else {
+      toast = "Hiện tạm nội dung trước khi chuyển đổi."
+      return
+    }
+    do {
+      let result = try transform.apply(to: item.text, history: clips.map(\.text))
+      addDerivedClip(result)
+      toast = "Copied: \(transform.title)"
+    } catch {
+      toast = error.localizedDescription
+    }
+  }
+  /// Puts generated text on the clipboard and at the top of history.
+  func addDerivedClip(_ text: String) {
+    var item = Clip(source: "ClipNest", kind: Clip.textKind(text), text: text, bundleID: "local.clipnest.app")
+    guard writeClipboard(item) else { return }
+    var next = clips
+    if let index = next.firstIndex(where: { $0.kind == item.kind && $0.text == text }) {
+      let previous = next.remove(at: index)
+      item.id = previous.id
+      item.board = previous.board
+      item.title = previous.title
+    }
+    next.insert(item, at: 0)
+    clips = retaining(next)
+    selected = item.id
+    save()
   }
   @discardableResult func copyGeneratedPassword(_ password: String) -> Bool {
     guard !password.isEmpty else { return false }
@@ -996,7 +1098,8 @@ final class Store: ObservableObject {
   }
   static let linksBoard = "Useful Links"
   static let ipBoard = "IP Addresses"
-  static let automaticBoards = [linksBoard, ipBoard]
+  static let ansibleBoard = "Ansible"
+  static let automaticBoards = [linksBoard, ipBoard, ansibleBoard]
 
   private func ensureLinksBoard() {
     if !boards.contains(Self.linksBoard) {
