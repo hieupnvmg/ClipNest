@@ -627,6 +627,30 @@ import SwiftUI
   flow.windowClosed()
   check(cancelled == 1 && acknowledged == 1,
     "Closing the update window cancels a check or download and acknowledges messages")
+  let installDriver = ClipNestUpdateDriver()
+  var quits = 0
+  var retries = 0
+  installDriver.flow.quitApp = { quits += 1 }
+  installDriver.quitDelay = 0.05
+  installDriver.retryDelay = 0.25
+  installDriver.flow.choiceReply = { _ in }
+  installDriver.flow.choose(.install)
+  installDriver.showInstallingUpdate(withApplicationTerminated: false, retryTerminatingApplication: { retries += 1 })
+  check(installDriver.flow.phase == .installing && !installDriver.flow.retryAvailable && quits == 0,
+    "Installing starts without asking the user to quit")
+  try? await Task.sleep(nanoseconds: 150_000_000)
+  check(quits == 1, "After choosing to install, ClipNest quits on its own so Sparkle can replace it")
+  try? await Task.sleep(nanoseconds: 250_000_000)
+  check(installDriver.flow.retryAvailable, "Quit and Install appears only if ClipNest is still running later")
+  installDriver.flow.retryTerminating()
+  check(retries == 1 && quits == 2, "Quit and Install asks Sparkle again and quits directly")
+  let passiveDriver = ClipNestUpdateDriver()
+  var passiveQuits = 0
+  passiveDriver.flow.quitApp = { passiveQuits += 1 }
+  passiveDriver.quitDelay = 0.05
+  passiveDriver.showInstallingUpdate(withApplicationTerminated: false, retryTerminatingApplication: {})
+  try? await Task.sleep(nanoseconds: 150_000_000)
+  check(passiveQuits == 0, "ClipNest never quits for an update the user did not choose to install")
   var loginStatus = SMAppService.Status.notRegistered
   var loginRegistrations = 0
   var loginUnregistrations = 0
