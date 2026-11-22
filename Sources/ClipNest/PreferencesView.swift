@@ -338,6 +338,7 @@ struct PreferencesView: View {
       SettingsFootnote(
         "Bundle IDs separated by commas, e.g. com.apple.keychainaccess. Password and transient clipboard markers are always ignored.")
     }
+    DatabasePerformanceSection(store: store)
   }
 
   @ViewBuilder private var imageTextModelStatus: some View {
@@ -517,5 +518,111 @@ struct SyncSettings: View {
         form.confirmation = ""
       }
     }
+  }
+}
+
+/// Settings › Clipboard: times the history database on a copy and shows each operation as a bar
+/// against one frame (16.7 ms), the point where a delay starts to be visible.
+struct DatabasePerformanceSection: View {
+  @ObservedObject var store: Store
+
+  var body: some View {
+    Section {
+      if let result = store.databaseBenchmark {
+        summary(result)
+        ForEach(DatabaseBenchmark.Moment.allCases, id: \.self) { moment in
+          let steps = result.steps.filter { $0.moment == moment }
+          if !steps.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+              Text(moment.rawValue).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+              ForEach(steps) { step in row(step, scale: scale(result)) }
+            }
+            .padding(.vertical, 2)
+          }
+        }
+      }
+      LabeledContent {
+        HStack(spacing: 8) {
+          if store.databaseBenchmarkRunning {
+            ProgressView().controlSize(.small)
+            Text("Measuring…").foregroundStyle(.secondary)
+          } else if let result = store.databaseBenchmark {
+            Text(result.date, style: .time).foregroundStyle(.secondary)
+          }
+          Button(store.databaseBenchmark == nil ? "Run Benchmark" : "Run Again") { store.runDatabaseBenchmark() }
+            .disabled(store.databaseBenchmarkRunning)
+        }
+      } label: {
+        Text(store.databaseBenchmark == nil ? "Check database speed" : "Last measured")
+      }
+      if let error = store.databaseBenchmarkError {
+        Label(error, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
+      }
+    } header: {
+      Text("Database performance")
+    } footer: {
+      SettingsFootnote(
+        "Runs on a temporary copy of your history, which is deleted afterwards; your data is never changed. Saves happen in the background. The dashed line is one frame (16.7 ms): anything shorter cannot be noticed.")
+    }
+  }
+
+  private func summary(_ result: DatabaseBenchmark) -> some View {
+    let slowest = result.slowestInteractive?.milliseconds ?? 0
+    let smooth = slowest < DatabaseBenchmark.frameBudget
+    return HStack(alignment: .top, spacing: 12) {
+      Image(systemName: smooth ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+        .font(.system(size: 26)).foregroundStyle(smooth ? Color.green : Color.orange)
+      VStack(alignment: .leading, spacing: 3) {
+        Text(smooth ? "Fast — every save is shorter than one frame" : "Some saves take longer than one frame")
+          .font(.system(size: 13, weight: .semibold))
+        Text(String(format: "Slowest while in use: %@ · launch: %@", Self.format(slowest), Self.format(result.launchMilliseconds)))
+          .font(.caption).foregroundStyle(.secondary)
+        Text("\(result.clips.formatted()) items · \(result.images.formatted()) images · "
+          + ByteCountFormatter.string(fromByteCount: result.databaseBytes, countStyle: .file))
+          .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+      }
+      Spacer(minLength: 0)
+    }
+    .padding(.vertical, 4)
+  }
+
+  /// The bar scale: the slowest step, but never less than a frame so the frame line always fits.
+  private func scale(_ result: DatabaseBenchmark) -> Double {
+    max(DatabaseBenchmark.frameBudget * 1.25, result.steps.map(\.milliseconds).max() ?? 0)
+  }
+
+  private func row(_ step: DatabaseBenchmark.Step, scale: Double) -> some View {
+    let barWidth: CGFloat = 170
+    let fraction = min(1, step.milliseconds / scale)
+    let frameX = barWidth * DatabaseBenchmark.frameBudget / scale
+    return HStack(spacing: 10) {
+      Text(step.title).font(.system(size: 12)).lineLimit(1)
+      Spacer(minLength: 8)
+      ZStack(alignment: .leading) {
+        Capsule().fill(Color.primary.opacity(0.07))
+        Capsule().fill(color(step).gradient)
+          .frame(width: max(4, barWidth * fraction))
+        Path { path in
+          path.move(to: CGPoint(x: frameX, y: -3))
+          path.addLine(to: CGPoint(x: frameX, y: 9))
+        }
+        .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+      }
+      .frame(width: barWidth, height: 6)
+      Text(Self.format(step.milliseconds))
+        .font(.system(size: 12, design: .rounded)).monospacedDigit()
+        .foregroundStyle(.secondary).frame(width: 62, alignment: .trailing)
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  private func color(_ step: DatabaseBenchmark.Step) -> Color {
+    if step.moment == .launch { return .blue }
+    if step.milliseconds < DatabaseBenchmark.frameBudget / 2 { return .green }
+    return step.milliseconds < DatabaseBenchmark.frameBudget ? .yellow : .orange
+  }
+
+  static func format(_ milliseconds: Double) -> String {
+    milliseconds < 10 ? String(format: "%.1f ms", milliseconds) : String(format: "%.0f ms", milliseconds)
   }
 }
