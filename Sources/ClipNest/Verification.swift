@@ -777,9 +777,13 @@ import SwiftUI
   let previewFolder = FileManager.default.temporaryDirectory.appendingPathComponent(
     UUID().uuidString)
   defer { try? FileManager.default.removeItem(at: previewFolder) }
+  // Previews never read or write the real iCloud Drive folder.
+  let previewCloud = previewFolder.appendingPathComponent("iCloud Drive/ClipNest Sync")
+  try? FileManager.default.createDirectory(
+    at: previewCloud.deletingLastPathComponent(), withIntermediateDirectories: true)
   let store = Store(
     folder: previewFolder,
-    defaults: defaults, pasteboard: pb, monitoring: false)
+    defaults: defaults, pasteboard: pb, monitoring: false, syncFolder: previewCloud)
   if CommandLine.arguments.contains("--standard-preview") { store.interfaceStyle = .standard }
   store.boards = ["Useful Links", "Important Notes", "Email Templates", "Code Snippets"]
   // Synthetic sample content used only for the preview; never added to real history.
@@ -849,6 +853,12 @@ import SwiftUI
   {
     store.preferencesPane = pane
   }
+  if CommandLine.arguments.contains("--sync-configured") {
+    await withCheckedContinuation { done in
+      store.setUpSync(passphrase: "preview passphrase", join: false) { _ in done.resume() }
+    }
+    await withCheckedContinuation { done in store.syncNow { done.resume() } }
+  }
   if CommandLine.arguments.contains("--search-preview") { store.searchVisible = true }
   if let i = CommandLine.arguments.firstIndex(of: "--preview-query"), i + 1 < CommandLine.arguments.count {
     store.searchVisible = true
@@ -872,17 +882,17 @@ import SwiftUI
   if let updatePreview {
     // Synthetic update states for checking the update window layout.
     let flow = UpdateFlow()
-    flow.version = "0.5.19"
+    flow.version = "0.6.0"
     flow.date = Date()
-    flow.size = 3_245_676
+    flow.size = 3_412_908
     flow.notes = ReleaseNotes.blocks(markdown: """
-      ## Native Liquid Glass
+      ## Your pinboards on every Mac
 
-      The clipboard panel now uses Apple’s **system glass**, with a Regular or Clear look.
+      Pinned clips now sync through **iCloud Drive**, encrypted with your own passphrase.
 
-      - Redesigned Preferences with clear sections
-      - A new update window with release notes
-      - Faster search with large rich-text items
+      - Search screenshots by the words in them
+      - Native Liquid Glass with a Regular or Clear look
+      - A redesigned Preferences window
       """)
     switch updatePreview {
     case "downloading": flow.phase = .downloading; flow.expected = 3_245_676; flow.received = 1_400_000
