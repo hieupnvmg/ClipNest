@@ -35,10 +35,10 @@
 <br>
 
 <p align="center">
-  <a href="docs/promo.mp4"><img src="docs/promo.webp" width="100%" alt="ClipNest in 25 seconds: open with Shift-Command-V, search as you type, secrets masked, a review sheet before production Ansible commands, encrypted iCloud sync, and a database faster than one frame"></a>
+  <a href="docs/promo.mp4"><img src="docs/promo.webp" width="100%" alt="ClipNest in 46 seconds: open with Shift-Command-V, instant search, search inside screenshots, masked secrets, a review sheet before production Ansible commands, Ansible output explained, right-click JSON and JWT transforms, light and dark Liquid Glass, encrypted iCloud sync, a password generator, sharing and self-updates, and a database faster than one frame"></a>
 </p>
 <p align="center">
-  <sub>🎬 &nbsp;<a href="docs/promo.mp4"><b>Watch in full quality</b></a> (MP4, 25 s) &nbsp;·&nbsp; made with <a href="https://www.remotion.dev">Remotion</a> from real app screenshots — source in <a href="promo"><code>promo/</code></a></sub>
+  <sub>🎬 &nbsp;<a href="docs/promo.mp4"><b>Watch in full quality</b></a> (MP4, 46 s) &nbsp;·&nbsp; made with <a href="https://www.remotion.dev">Remotion</a> from real app screenshots — source in <a href="promo"><code>promo/</code></a></sub>
 </p>
 
 <br>
