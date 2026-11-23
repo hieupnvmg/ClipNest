@@ -6,6 +6,21 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>ClipNest</title>
         <item>
+            <title>0.5.25</title>
+            <pubDate>Tue, 24 Nov 2026 03:29:35 +0700</pubDate>
+            <link>https://github.com/hieupnvmg/ClipNest</link>
+            <sparkle:version>38</sparkle:version>
+            <sparkle:shortVersionString>0.5.25</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## Faster clipboard search
+
+- Improved search responsiveness and jump straight to the first result when filters change.
+- Added a database performance benchmark in Settings.
+]]></description>
+            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.25/ClipNest-0.5.25-Apple-Silicon.dmg" length="3600599" type="application/octet-stream" sparkle:edSignature="0oFtZN944Kojl11GCCZCSdoBchy7Hh7KJXt85bTQBy6knE4NdsPqZZ3d/Xl/81Z4VA5ODKB06zbtryWVvVEEDg=="/>
+        </item>
+        <item>
             <title>0.5.24</title>
             <pubDate>Sun, 22 Nov 2026 08:02:33 +0700</pubDate>
             <link>https://github.com/hieupnvmg/ClipNest</link>
@@ -34,24 +49,9 @@ After you choose to install an update, ClipNest quits automatically so installat
 ]]></description>
             <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.23/ClipNest-0.5.23-Apple-Silicon.dmg" length="3524794" type="application/octet-stream" sparkle:edSignature="EZkJCMU4eg0y0y2Z/wrgCUibf5/5w0hOpHMzKT+XWIyWI6dKAIy66pU5UwryVBnfucPwK9OBp1rSICBvfErfAA=="/>
         </item>
-        <item>
-            <title>0.5.22</title>
-            <pubDate>Sun, 22 Nov 2026 07:08:07 +0700</pubDate>
-            <link>https://github.com/hieupnvmg/ClipNest</link>
-            <sparkle:version>35</sparkle:version>
-            <sparkle:shortVersionString>0.5.22</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## Pinboard sync and text recognition
-
-- Optional iCloud Drive sync for custom pinboards, encrypted with your sync passphrase.
-- Preferences now shows the status of the image text recognition model.
-]]></description>
-            <enclosure url="https://github.com/hieupnvmg/ClipNest/releases/download/v0.5.22/ClipNest-0.5.22-Apple-Silicon.dmg" length="3397985" type="application/octet-stream" sparkle:edSignature="qDXxFe1X1im8eaTZwJnGkw9TIaT60lSrwV4PM4CdIqWRdiH7683zwWRl9KJf0rA86XjDuzRIxKimGPvyhOISBw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: oeaTDR68UGsQPd8lPFhthO2vwq6mOEj2da5ieEbj700p5WWTI+EklseRBccs2ffdaRzK5ETEyh/jJMF/SoqECw==
-length: 3462
+edSignature: UA7s0KPb8LyOEytjlko+a4qyilmJg+BAEhARC02KT4Vwq3HXNFxvfQ1WkogYAYDL0QNC43p1xLHCpWSFcN39DQ==
+length: 3437
 -->
