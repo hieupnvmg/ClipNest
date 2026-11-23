@@ -221,7 +221,26 @@ final class Store: ObservableObject {
   @Published var selected: UUID?
   @Published var clips: [Clip] = [] { didSet { invalidateSearch() } }
   @Published var boards: [String]
-  @Published var query = "" { didSet { cachedFiltered = nil } }
+  @Published var query = "" {
+    didSet {
+      guard query != oldValue else { return }
+      cachedFiltered = nil
+      // Pick the first result in the same update as the new results, so typing redraws the
+      // cards once instead of twice.
+      selectFirstResult()
+    }
+  }
+  /// True when the selection just jumped to the first result (new search, board, filter or
+  /// panel opening) rather than moving with the arrow keys. The list then jumps there without
+  /// animating: an animated scroll from far along the list re-lays out every card on each
+  /// frame, which took seconds with a long history.
+  var selectionFollowsSearch = false
+  func selectFirstResult() {
+    let first = filtered.first?.id
+    guard selected != first else { return }
+    selectionFollowsSearch = true
+    selected = first
+  }
   @Published var board: String? { didSet { invalidateSearch() } }
   @Published var kind = "All types" { didSet { invalidateSearch() } }
   @Published var paused = false
@@ -246,6 +265,7 @@ final class Store: ObservableObject {
   private var cachedFiltered: [Clip]?
   /// Matches for the last query. Typing more characters only narrows this set.
   private var searchBase: (query: String, ids: Set<UUID>)?
+  let searchIndex = SearchIndex()
   private let writerQueue = DispatchQueue(label: "local.clipnest.history", qos: .utility)
   private var pendingSave: DispatchWorkItem?
   private var pendingSnapshot: [Clip]?
@@ -302,6 +322,7 @@ final class Store: ObservableObject {
         "Could not open clipboard history. Existing files have been kept. \(error.localizedDescription)"
     }
     selected = clips.first?.id
+    searchIndex.warm(clips)
     refreshStorageUsage()
     refreshSyncStatus()
     if monitoring {
@@ -349,18 +370,17 @@ final class Store: ObservableObject {
     var sourceMatches: [Clip] = []
     // A longer query can only match items the shorter one matched.
     let narrowed = searchBase.flatMap { query.hasPrefix($0.query) ? $0.ids : nil }
+    let foldedQuery = SearchIndex.fold(query)
     for item in candidates {
       if let narrowed, !narrowed.contains(item.id) { continue }
       if item.text.hasPrefix(query) || item.title.hasPrefix(query) {
         exactPrefixes.append(item)
         continue
       }
-      let textMatch = item.text.range(of: query, options: .caseInsensitive, locale: .current)
-      let titleMatch = item.title.range(of: query, options: .caseInsensitive, locale: .current)
-      if textMatch?.lowerBound == item.text.startIndex
-        || titleMatch?.lowerBound == item.title.startIndex {
+      let match = searchIndex.match(item, folded: foldedQuery)
+      if match == .prefix {
         foldedPrefixes.append(item)
-      } else if textMatch != nil || titleMatch != nil
+      } else if match == .contains
         || (item.kind == "Image"
           && recognizedText(for: item).range(of: query, options: .caseInsensitive, locale: .current) != nil)
       {
@@ -370,6 +390,7 @@ final class Store: ObservableObject {
       }
     }
     let result = exactPrefixes + foldedPrefixes + contentMatches + sourceMatches
+    searchIndex.prune(keeping: clips)
     cachedFiltered = result
     searchBase = (query, Set(result.lazy.map(\.id)))
     return result
@@ -835,7 +856,7 @@ final class Store: ObservableObject {
     guard kept.count != clips.count else { return }
     clips = kept
     if let selected, !clips.contains(where: { $0.id == selected }) {
-      self.selected = filtered.first?.id
+      selectFirstResult()
     }
   }
   func capture(source: String? = nil, bundleID: String? = nil) {
@@ -1153,12 +1174,12 @@ final class Store: ObservableObject {
   func remove(_ item: Clip) {
     forgetCachedItem(item.id)
     clips.removeAll { $0.id == item.id }
-    selected = filtered.first?.id
+    selectFirstResult()
     save()
   }
   func selectBoard(_ value: String?) {
     board = value
-    selected = filtered.first?.id
+    selectFirstResult()
   }
   func move(_ offset: Int) {
     let items = filtered

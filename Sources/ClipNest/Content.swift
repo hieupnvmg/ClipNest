@@ -356,7 +356,14 @@ struct ClipboardContent: View {
             }.padding(.horizontal, 20).padding(.vertical, 8)
           }
           .onChange(of: store.selected) { value in
-            if let id = value { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) } }
+            guard let id = value else { return }
+            if store.selectionFollowsSearch {
+              // New search results: jump, an animated scroll would re-lay out cards every frame.
+              store.selectionFollowsSearch = false
+              proxy.scrollTo(id, anchor: .leading)
+            } else {
+              withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) }
+            }
           }
           .onChange(of: store.board) { _ in
             if let first = store.filtered.first { proxy.scrollTo(first.id, anchor: .leading) }
@@ -387,8 +394,7 @@ struct ClipboardContent: View {
       Button("Save") { store.renameBoard() }
       Button("Cancel", role: .cancel) {}
     }
-    .onChange(of: store.query) { _ in store.selected = store.filtered.first?.id }
-    .onChange(of: store.kind) { _ in store.selected = store.filtered.first?.id }
+    .onChange(of: store.kind) { _ in store.selectFirstResult() }
     .onChange(of: store.settings) { value in if value { store.hideRevealedSensitiveItems() } }
     .sheet(isPresented: $store.settings) { preferences }
     .sheet(item: $store.editing) { item in editor(item) }

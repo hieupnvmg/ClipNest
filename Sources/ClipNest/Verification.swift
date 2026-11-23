@@ -65,6 +65,30 @@ import SwiftUI
   s.query = "Qui"
   check(s.filtered.map(\.text) == ["Quiet", "Quick"],
     "New items are searched even while a query is being narrowed")
+  s.query = ""
+  s.clips = [
+    Clip(source: "Test", kind: "Text", text: "Ghi chu\u{0300} cu\u{0309}a to\u{0302}i"),
+    Clip(source: "Test", kind: "Text", text: "ĐÂY LÀ LỆNH DEPLOY"),
+    Clip(source: "Test", kind: "Text", text: "plain", title: "Tiêu đề Nginx"),
+  ]
+  s.query = "chù"
+  check(s.filtered.count == 1, "Search matches decomposed Vietnamese accents typed as precomposed")
+  s.query = "lệnh deploy"
+  check(s.filtered.map(\.text) == ["ĐÂY LÀ LỆNH DEPLOY"], "Search folds case of Vietnamese capitals")
+  s.query = "nginx"
+  check(s.filtered.map(\.text) == ["plain"], "Search looks inside titles")
+  s.query = ""
+  s.clips[2].title = ""
+  s.clips[2].text = "edited nginx body"
+  s.query = "tiêu"
+  check(s.filtered.isEmpty, "Search forgets a title after it is edited away")
+  s.query = "nginx body"
+  check(s.filtered.map(\.text) == ["edited nginx body"] && s.selected == s.clips[2].id,
+    "Edited text is searched and the first result is selected in the same update")
+  s.clips = []
+  s.query = ""
+  s.searchIndex.prune(keeping: [])
+  check(s.searchIndex.count <= 256, "Search copies of removed items are dropped")
   let hugeText = String(repeating: "Xin chào 👋 clipboard\n", count: 60_000)
   let hugeClip = Clip(source: "Test", kind: "Text", text: hugeText)
   check(
@@ -1118,7 +1142,56 @@ func runPerformanceChecks() {
   }
   // The whole Store startup as the app does it, on the main thread.
   let start = ProcessInfo.processInfo.systemUptime
-  _ = Store(folder: work, defaults: UserDefaults(suiteName: "ClipNest.db-bench.\(UUID())")!,
+  let store = Store(folder: work, defaults: UserDefaults(suiteName: "ClipNest.db-bench.\(UUID())")!,
     pasteboard: NSPasteboard.withUniqueName(), monitoring: false)
   print(String(format: "Store startup on the main thread: %.1f ms", (ProcessInfo.processInfo.systemUptime - start) * 1000))
+  // Typing a search, one keystroke at a time, as the panel does it (after the index warms up).
+  let warmStart = ProcessInfo.processInfo.systemUptime
+  while store.searchIndex.count < store.clips.count, ProcessInfo.processInfo.systemUptime - warmStart < 10 {
+    RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+  }
+  print(String(format: "Search index ready in the background after %.0f ms", (ProcessInfo.processInfo.systemUptime - warmStart) * 1000))
+  for typed in ["Q", "q", "e", "Qu", "nginx", "timed out"] {
+    store.query = ""
+    _ = store.filtered
+    var steps: [String] = []
+    for end in typed.indices {
+      let begin = ProcessInfo.processInfo.systemUptime
+      store.query = String(typed[...end])
+      let count = store.filtered.count
+      steps.append(String(format: "%@ %.1f ms (%d)", store.query, (ProcessInfo.processInfo.systemUptime - begin) * 1000, count))
+    }
+    print("Search: " + steps.joined(separator: " · "))
+  }
+  // The same keystrokes with the panel on screen: SwiftUI update, layout and drawing.
+  store.query = ""
+  store.searchVisible = true
+  let hosting = NSHostingView(rootView: ClipboardContent(store: store).frame(width: 1100, height: 380))
+  hosting.frame = NSRect(x: 0, y: 0, width: 1100, height: 380)
+  let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+  window.contentView = hosting
+  func drawNow() -> Double {
+    let begin = ProcessInfo.processInfo.systemUptime
+    RunLoop.main.run(until: Date())
+    hosting.layoutSubtreeIfNeeded()
+    hosting.display()
+    return (ProcessInfo.processInfo.systemUptime - begin) * 1000
+  }
+  _ = drawNow()
+  for typed in ["Q", "nginx"] {
+    var steps: [String] = []
+    for end in typed.indices {
+      let begin = ProcessInfo.processInfo.systemUptime
+      store.query = String(typed[...end])
+      store.selected = store.filtered.first?.id
+      _ = drawNow()
+      steps.append(String(format: "%@ %.1f ms", store.query, (ProcessInfo.processInfo.systemUptime - begin) * 1000))
+    }
+    let begin = ProcessInfo.processInfo.systemUptime
+    store.query = ""
+    store.selected = store.filtered.first?.id
+    _ = drawNow()
+    steps.append(String(format: "cleared %.1f ms", (ProcessInfo.processInfo.systemUptime - begin) * 1000))
+    print("Panel: " + steps.joined(separator: " · "))
+  }
 }
