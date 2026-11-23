@@ -226,16 +226,21 @@ final class Store: ObservableObject {
       guard query != oldValue else { return }
       cachedFiltered = nil
       // Pick the first result in the same update as the new results, so typing redraws the
-      // cards once instead of twice. The list then jumps to it without animating.
-      let first = filtered.first?.id
-      if selected != first {
-        selectionFollowsSearch = true
-        selected = first
-      }
+      // cards once instead of twice.
+      selectFirstResult()
     }
   }
-  /// True when the selection just moved because the search changed (not by arrow keys).
+  /// True when the selection just jumped to the first result (new search, board, filter or
+  /// panel opening) rather than moving with the arrow keys. The list then jumps there without
+  /// animating: an animated scroll from far along the list re-lays out every card on each
+  /// frame, which took seconds with a long history.
   var selectionFollowsSearch = false
+  func selectFirstResult() {
+    let first = filtered.first?.id
+    guard selected != first else { return }
+    selectionFollowsSearch = true
+    selected = first
+  }
   @Published var board: String? { didSet { invalidateSearch() } }
   @Published var kind = "All types" { didSet { invalidateSearch() } }
   @Published var paused = false
@@ -851,7 +856,7 @@ final class Store: ObservableObject {
     guard kept.count != clips.count else { return }
     clips = kept
     if let selected, !clips.contains(where: { $0.id == selected }) {
-      self.selected = filtered.first?.id
+      selectFirstResult()
     }
   }
   func capture(source: String? = nil, bundleID: String? = nil) {
@@ -1169,12 +1174,12 @@ final class Store: ObservableObject {
   func remove(_ item: Clip) {
     forgetCachedItem(item.id)
     clips.removeAll { $0.id == item.id }
-    selected = filtered.first?.id
+    selectFirstResult()
     save()
   }
   func selectBoard(_ value: String?) {
     board = value
-    selected = filtered.first?.id
+    selectFirstResult()
   }
   func move(_ offset: Int) {
     let items = filtered

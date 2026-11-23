@@ -131,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       display: true)
     if !panel.isVisible { store.query = "" }
     store.searchVisible = true
-    store.selected = store.filtered.first?.id
+    store.selectFirstResult()
     panelPresentation.isVisible = true
     panel.makeKeyAndOrderFront(nil)
     focusSearch()

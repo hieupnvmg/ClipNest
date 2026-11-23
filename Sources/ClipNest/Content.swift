@@ -394,7 +394,7 @@ struct ClipboardContent: View {
       Button("Save") { store.renameBoard() }
       Button("Cancel", role: .cancel) {}
     }
-    .onChange(of: store.kind) { _ in store.selected = store.filtered.first?.id }
+    .onChange(of: store.kind) { _ in store.selectFirstResult() }
     .onChange(of: store.settings) { value in if value { store.hideRevealedSensitiveItems() } }
     .sheet(isPresented: $store.settings) { preferences }
     .sheet(item: $store.editing) { item in editor(item) }
