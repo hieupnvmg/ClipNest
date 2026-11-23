@@ -62,8 +62,11 @@ struct DeferredImagePreview: View {
   let store: Store
   @StateObject private var state = ThumbnailState()
   var body: some View {
+    // A thumbnail already in memory is drawn right away, so cards that come back into the
+    // results (while typing a search) don't flash a placeholder first.
+    let image = state.image ?? PreviewCache.shared.images.object(forKey: clip.id.uuidString as NSString)
     Group {
-      if let image = state.image {
+      if let image {
         GeometryReader { geo in
           Image(nsImage: image).resizable().scaledToFill()
             .frame(width: geo.size.width, height: geo.size.height).clipped()
